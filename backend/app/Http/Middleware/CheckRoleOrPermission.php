@@ -37,6 +37,23 @@ class CheckRoleOrPermission
             return $next($request);
         }
 
+        if (
+            $user->getRoleSlug() === 'farm_staff'
+            && array_intersect($items, [
+                'view_admin_reports',
+                'view_revenue',
+                'view_financial_reports',
+                'view_customers',
+                'manage_customers',
+            ])
+        ) {
+            return $this->errorResponse(
+                message: 'Vai trò Farm Staff không được phép truy cập dữ liệu doanh thu hoặc thông tin khách hàng.',
+                status: 403,
+                errorCode: self::ERR_FORBIDDEN
+            );
+        }
+
         foreach ($items as $item) {
             $normalized = trim($item);
             if ($user->hasRole(strtolower($normalized)) || $user->hasPermission($normalized)) {

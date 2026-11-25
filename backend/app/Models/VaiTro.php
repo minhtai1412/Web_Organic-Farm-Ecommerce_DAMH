@@ -6,13 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 
 class VaiTro extends Model
 {
-    protected $table = 'Vai_tro';
+    protected $table = 'vai_tro';
     protected $primaryKey = 'Ma_vai_tro';
     protected $guarded = [];
 
     public function quyens()
     {
-        return $this->belongsToMany(Quyen::class, 'Vai_tro_quyen', 'Ma_vai_tro', 'Ma_quyen');
+        return $this->belongsToMany(Quyen::class, 'vai_tro_quyen', 'Ma_vai_tro', 'Ma_quyen');
     }
 
     public function nguoiDungs()

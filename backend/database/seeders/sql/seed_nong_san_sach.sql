@@ -23,6 +23,15 @@ INSERT INTO Vai_tro_quyen (Ma_vai_tro, Ma_quyen) VALUES
 (3,3),(3,4),(3,5),(3,6),
 (4,10);
 
+INSERT INTO Vai_tro_quyen (Ma_vai_tro, Ma_quyen)
+SELECT vt.Ma_vai_tro, q.Ma_quyen
+FROM Vai_tro AS vt
+CROSS JOIN Quyen AS q
+WHERE (vt.Ten_vai_tro = 'Admin' AND q.Ten_quyen IN (
+    'view_revenue', 'view_financial_reports', 'view_customers', 'manage_customers'
+))
+OR (vt.Ten_vai_tro = 'Sales' AND q.Ten_quyen IN ('view_customers', 'manage_customers'));
+
 -- 2. Người dùng & Địa chỉ giao hàng (Mật khẩu mẫu đều là 'password')
 INSERT INTO Nguoi_dung (Ma_nguoi_dung, Ma_vai_tro, Ho_ten, Email, So_dien_thoai, Mat_khau_ma_hoa, Trang_thai) VALUES
 (1, 1, 'Nguyễn Minh Quản Trị', 'admin@nongsansach.vn', '0901000001', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Hoat_dong'),

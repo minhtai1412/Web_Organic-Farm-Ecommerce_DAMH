@@ -16,8 +16,15 @@ export const adminApi = {
 
   // Quản lý người dùng & phân quyền
   getUsers: (params) => axiosClient.get("/admin/users", { params }),
+  createStaffAccount: (data) => axiosClient.post("/admin/users/staff", data),
+  updateUser: (userId, data) => axiosClient.put(`/admin/users/${userId}`, data),
+  toggleUserStatus: (userId, data) =>
+    axiosClient.patch(`/admin/users/${userId}/toggle-status`, data),
   updateUserStatus: (userId, status) =>
     axiosClient.put(`/admin/users/${userId}/status`, { status }),
+  getRolesAndPermissions: () => axiosClient.get("/admin/roles"),
+  updateRolePermissions: (role, permissions) =>
+    axiosClient.put(`/admin/roles/${encodeURIComponent(role)}/permissions`, { permissions }),
 
   // Cấu hình hệ thống
   getSettings: () => axiosClient.get("/admin/settings"),

@@ -51,15 +51,30 @@ class NguoiDung extends Authenticatable
 
     public function hasPermission(string $tenQuyen): bool
     {
+        if (
+            $this->getRoleSlug() === 'farm_staff'
+            && in_array($tenQuyen, [
+                'view_admin_reports',
+                'view_revenue',
+                'view_financial_reports',
+                'view_customers',
+                'manage_customers',
+            ], true)
+        ) {
+            return false;
+        }
+
         return $this->vaiTro?->quyens()->where('Ten_quyen', $tenQuyen)->exists() ?? false;
     }
 
     public function getRoleSlug(): string
     {
-        return match ((int) $this->Ma_vai_tro) {
-            1 => 'admin',
-            2 => 'sales',
-            3 => 'farm_staff',
+        $roleName = $this->vaiTro?->Ten_vai_tro;
+
+        return match (strtolower((string) $roleName)) {
+            'admin' => 'admin',
+            'sales' => 'sales',
+            'farm_staff' => 'farm_staff',
             default => 'customer',
         };
     }

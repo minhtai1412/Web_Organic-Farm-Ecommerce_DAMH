@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\Admin\ProductController;
 use App\Http\Controllers\Api\Admin\ReportController;
 use App\Http\Controllers\Api\Admin\SystemSettingController;
 use App\Http\Controllers\Api\Admin\UserRoleController;
+use App\Http\Controllers\Api\Admin\AdminRbacController;
 use App\Http\Controllers\Api\Admin\SubscriptionPackageController;
 use App\Http\Controllers\Api\Admin\FarmProfileController;
 use Illuminate\Support\Facades\Route;
@@ -13,7 +14,12 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
     Route::get('/reports/dashboard', [ReportController::class, 'dashboard']);
     Route::get('/users', [UserRoleController::class, 'index']);
+    Route::post('/users/staff', [UserRoleController::class, 'storeStaff']);
+    Route::put('/users/{id}', [UserRoleController::class, 'update'])->whereNumber('id');
+    Route::patch('/users/{id}/toggle-status', [UserRoleController::class, 'toggleStatus'])->whereNumber('id');
     Route::put('/users/{id}/status', [UserRoleController::class, 'updateStatus']);
+    Route::get('/roles', [AdminRbacController::class, 'index']);
+    Route::put('/roles/{role}/permissions', [AdminRbacController::class, 'update']);
     Route::get('/settings', [SystemSettingController::class, 'index']);
     Route::put('/settings', [SystemSettingController::class, 'update']);
 
