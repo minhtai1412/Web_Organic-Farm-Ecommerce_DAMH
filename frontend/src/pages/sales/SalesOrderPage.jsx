@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 import { ClipboardList, RefreshCw } from "lucide-react";
+import { showGlobalToast } from "../../components/GlobalToast";
 import Pagination from "../../components/common/Pagination";
 import SalesOrderCard from "../../components/sales/SalesOrderCard";
 import SalesOrderFilters from "../../components/sales/SalesOrderFilters";
+import DeliveryResultModal from "../../components/sales/modals/DeliveryResultModal";
+import DispatchOrderModal from "../../components/sales/modals/DispatchOrderModal";
 import { salesApi } from "../../services/salesApi";
+import { notifyApiErrorToast } from "../../services/axiosClient";
 
 export default function SalesOrderPage() {
   const [orders, setOrders] = useState([]);
@@ -16,6 +20,8 @@ export default function SalesOrderPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [dispatchOrder, setDispatchOrder] = useState(null);
+  const [deliveryResult, setDeliveryResult] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -81,6 +87,48 @@ export default function SalesOrderPage() {
     }
   };
 
+  const runDeliveryAction = async (order, action, payload) => {
+    const key = action === "dispatch" ? `dispatch:${order.order_id}` : `delivery:${order.order_id}`;
+    setBusyAction(key);
+    setError("");
+    try {
+      if (action === "dispatch") {
+        await salesApi.dispatchOrder(order.order_id, payload);
+        showGlobalToast("Đã điều phối giao hàng và cập nhật trạng thái đơn.");
+      } else if (action === "success") {
+        const response = await salesApi.completeDelivery(order.order_id, payload);
+        const earned = Number(response.data?.points_earned || 0);
+        showGlobalToast(
+          earned > 0
+            ? `Đã xác nhận giao thành công và cộng ${earned} điểm thưởng cho khách.`
+            : "Đã xác nhận giao hàng thành công."
+        );
+      } else {
+        await salesApi.failDelivery(order.order_id, payload);
+        showGlobalToast("Đã ghi nhận giao thất bại và xử lý tồn kho, thanh toán, điểm thưởng.");
+      }
+
+      setLoading(true);
+      setRefreshKey((value) => value + 1);
+      setDispatchOrder(null);
+      setDeliveryResult(null);
+      return true;
+    } catch (requestError) {
+      setError(requestError.message || "Không thể cập nhật thông tin giao nhận.");
+      notifyApiErrorToast(requestError, "Không thể cập nhật thông tin giao nhận.");
+      return false;
+    } finally {
+      setBusyAction("");
+    }
+  };
+
+  const codPending = (order) =>
+    order.payments?.some(
+      (payment) =>
+        payment.method === "COD" &&
+        ["Khoi_tao", "Cho_thanh_toan"].includes(payment.status)
+    ) || false;
+
   return (
     <div className="space-y-5">
       <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -93,7 +141,7 @@ export default function SalesOrderPage() {
             Quản lý đơn hàng
           </h1>
           <p className="mt-1 text-sm text-[#5a6357]">
-            Phê duyệt đơn, kiểm tra phân bổ kho FEFO và ghi nhận tiền COD.
+            Phê duyệt đơn, điều phối giao nhận, chăm sóc khách hàng và xử lý tiền COD.
           </p>
         </div>
         <button
@@ -151,6 +199,10 @@ export default function SalesOrderPage() {
               onConfirmCodPayment={(selectedOrder) =>
                 runOrderAction(selectedOrder, "cod", "Đã ghi nhận thu tiền COD.")
               }
+              onDispatch={setDispatchOrder}
+              onDeliveryResult={(selectedOrder, mode) =>
+                setDeliveryResult({ order: selectedOrder, mode })
+              }
             />
           ))}
         </div>
@@ -170,6 +222,31 @@ export default function SalesOrderPage() {
           setPage(nextPage);
         }}
         itemLabel="đơn hàng"
+      />
+
+      <DispatchOrderModal
+        order={dispatchOrder}
+        busy={busyAction === `dispatch:${dispatchOrder?.order_id}`}
+        onClose={() => {
+          if (!busyAction) setDispatchOrder(null);
+        }}
+        onSubmit={(payload) => runDeliveryAction(dispatchOrder, "dispatch", payload)}
+      />
+      <DeliveryResultModal
+        order={deliveryResult?.order}
+        mode={deliveryResult?.mode}
+        codPending={deliveryResult ? codPending(deliveryResult.order) : false}
+        busy={Boolean(busyAction)}
+        onClose={() => {
+          if (!busyAction) setDeliveryResult(null);
+        }}
+        onSubmit={(payload) =>
+          runDeliveryAction(
+            deliveryResult.order,
+            deliveryResult.mode,
+            payload
+          )
+        }
       />
     </div>
   );

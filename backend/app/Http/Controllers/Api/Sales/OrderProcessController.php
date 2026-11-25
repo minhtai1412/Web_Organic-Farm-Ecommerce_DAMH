@@ -130,8 +130,13 @@ class OrderProcessController extends Controller
                 'paid_at' => $payment->Thoi_gian_thanh_toan,
             ])->all(),
             'delivery' => $order->giaoHang ? [
+                'carrier' => $order->giaoHang->Don_vi_van_chuyen,
                 'status' => $order->giaoHang->Trang_thai,
                 'tracking_number' => $order->giaoHang->Ma_van_don,
+                'shipped_at' => $order->giaoHang->Ngay_xuat_giao,
+                'delivered_at' => $order->giaoHang->Ngay_giao_thanh_cong,
+                'failure_reason' => $order->giaoHang->Ly_do_that_bai,
+                'dispatch_note' => $order->giaoHang->Ghi_chu_dieu_phoi,
             ] : null,
             'can_confirm' => $order->Trang_thai === 'Cho_xac_nhan',
             'can_confirm_cod_collection' => in_array(

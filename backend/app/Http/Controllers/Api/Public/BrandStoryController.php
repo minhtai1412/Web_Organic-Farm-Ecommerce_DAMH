@@ -123,7 +123,12 @@ class BrandStoryController extends Controller
             ])
             ->orderBy('Ma_chung_nhan')
             ->get();
-        }
+        $certificateRecords = $certificateRecords
+            ->reject(fn (ChungNhan $certificate): bool => str_contains(
+                mb_strtolower((string) $certificate->Ten_chung_nhan),
+                'globalgap'
+            ))
+            ->values();
         // 2. Chuẩn hóa nhãn $standard linh hoạt cho mọi loại chứng nhận
         $certificationDetails = $certificateRecords->map(function (ChungNhan $certificate): array {
             $name = (string) $certificate->Ten_chung_nhan;
@@ -169,6 +174,7 @@ class BrandStoryController extends Controller
                 'cultivation_process' => $cultivationProcess,
                 'certifications' => $certificationDetails
                     ->pluck('standard')
+                    ->reject(fn ($standard) => $standard === 'GlobalGAP')
                     ->unique()
                     ->values()
                     ->all(),

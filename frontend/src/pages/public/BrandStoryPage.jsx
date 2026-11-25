@@ -360,7 +360,7 @@ export default function BrandStoryPage() {
               };
               const SampleIcon = sampleMeta.icon;
               const fileUrl = test.file_url || "";
-            
+
               return (
                 <article
                   key={test.id}
@@ -376,8 +376,6 @@ export default function BrandStoryPage() {
                       </h3>
                       <p className="mt-1 text-xs text-[#778272]">{test.farm_name}</p>
                     </div>
-                  </div>
-                  {/* Giữ nguyên phần hiển thị result, note và nút Xem hồ sơ bên dưới */}
                   </div>
                   <p className="mt-4 text-sm font-semibold leading-6 text-[#42513f]">
                     {test.result}
@@ -395,7 +393,7 @@ export default function BrandStoryPage() {
                         onClick={() =>
                           setSelectedMedia({
                             url: fileUrl,
-                            title: `Kết quả kiểm định ${isWaterSample ? "nước" : "đất"}`,
+                            title: `Kết quả kiểm định ${sampleMeta.label.toLowerCase()}`,
                             subtitle: test.farm_name,
                             type: /\.pdf(?:$|[?#])/i.test(test.file_path || fileUrl)
                               ? "pdf"
@@ -473,21 +471,21 @@ export default function BrandStoryPage() {
         {galleryItems.length > 0 && (
           <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
             {galleryItems.map(({ farm, image }) => (
-                <figure
-                  key={`${farm.id}-${image.id}`}
-                  className="overflow-hidden rounded-2xl border border-[#e0e8dc] bg-white"
-                >
-                  <FarmPhoto
-                    image={image}
-                    farmName={farm.name}
-                    className="h-36 w-full object-cover transition-transform duration-300 hover:scale-[1.03] sm:h-48"
-                  />
-                  {image.caption && (
-                    <figcaption className="px-3 py-2.5 text-xs leading-5 text-[#657061] sm:px-4 sm:text-sm">
-                      {image.caption}
-                    </figcaption>
-                  )}
-                </figure>
+              <figure
+                key={`${farm.id}-${image.id}`}
+                className="overflow-hidden rounded-2xl border border-[#e0e8dc] bg-white"
+              >
+                <FarmPhoto
+                  image={image}
+                  farmName={farm.name}
+                  className="h-36 w-full object-cover transition-transform duration-300 hover:scale-[1.03] sm:h-48"
+                />
+                {image.caption && (
+                  <figcaption className="px-3 py-2.5 text-xs leading-5 text-[#657061] sm:px-4 sm:text-sm">
+                    {image.caption}
+                  </figcaption>
+                )}
+              </figure>
             ))}
           </div>
         )}
@@ -616,11 +614,10 @@ export default function BrandStoryPage() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <span
-                      className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
-                        isOrganic
+                      className={`flex h-12 w-12 items-center justify-center rounded-2xl ${isOrganic
                           ? "bg-[#edf6e9] text-[#08712b]"
                           : "bg-amber-50 text-amber-700"
-                      }`}
+                        }`}
                     >
                       <Award className="h-6 w-6" aria-hidden="true" />
                     </span>
@@ -683,7 +680,7 @@ export default function BrandStoryPage() {
                     className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#075b25] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#00450d] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#18823a] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-[#dfe6dc] disabled:text-[#7b8578]"
                   >
                     {certificate.file_path &&
-                    /\.pdf(?:$|[?#])/i.test(certificate.file_path) ? (
+                      /\.pdf(?:$|[?#])/i.test(certificate.file_path) ? (
                       <FileText className="h-4 w-4" aria-hidden="true" />
                     ) : (
                       <BadgeCheck className="h-4 w-4" aria-hidden="true" />
