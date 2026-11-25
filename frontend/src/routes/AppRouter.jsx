@@ -62,7 +62,7 @@ export default function AppRouter() {
               <Route element={<RoleGuard roles={["customer"]} />}>
                 <Route path="cart" element={<CartPage />} />
                 <Route path="checkout" element={<CheckoutPage />} />
-                <Route path="orders" element={<OrderHistoryPage />} />
+                <Route path="orders" element={<Navigate to="/rewards?tab=orders" replace />} />
                 <Route path="rewards" element={<RewardWalletPage />} />
                 <Route path="profile" element={<RewardWalletPage />} />
               </Route>

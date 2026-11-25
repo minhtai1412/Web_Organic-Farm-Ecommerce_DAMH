@@ -1,6 +1,6 @@
 /* Trang lịch sử đơn hàng của khách hàng: đầu trang cố định gọn nhẹ và điều phối 3 tab Đơn hàng, Gói định kỳ, Khiếu nại. */
 import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Award, CalendarDays, Package, Receipt, RefreshCw } from "lucide-react";
 import EmptyState from "../../components/common/EmptyState";
 import { confirmGlobalDialog, showGlobalToast } from "../../components/GlobalToast";
@@ -13,8 +13,12 @@ import { notifyApiErrorToast } from "../../services/axiosClient";
 import { customerApi } from "../../services/customerApi";
 
 export default function OrderHistoryPage() {
-  const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("orders");
+const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState(
+    ["orders", "subscriptions", "claims"].includes(initialTab) ? initialTab : "orders"
+  );
   const [orderStatus, setOrderStatus] = useState("");
   const [orders, setOrders] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
@@ -30,6 +34,7 @@ export default function OrderHistoryPage() {
   const [continuingPaymentOrderId, setContinuingPaymentOrderId] = useState(null);
   const [claimOrder, setClaimOrder] = useState(null);
   const [loadError, setLoadError] = useState("");
+  
 
   const loadOrders = useCallback(
     async (page = 1, status = orderStatus, append = false) => {
@@ -163,7 +168,15 @@ export default function OrderHistoryPage() {
     setContinuingPaymentOrderId(order.order_id);
     try {
       const response = await customerApi.checkout({ order_id: Number(order.order_id) });
-      const paymentUrl = response.data?.pay_url;
+      const payload = response.data?.data ?? response.data ?? {};
+
+      if (payload.already_paid) {
+        showGlobalToast("Đơn hàng đã thanh toán thành công và đang chờ xác nhận.", "success");
+        await loadOrders(1, orderStatus);
+        return;
+      }
+
+      const paymentUrl = payload.pay_url;
       if (!paymentUrl) {
         throw new Error("Không nhận được liên kết thanh toán. Vui lòng thử lại sau.");
       }
@@ -175,7 +188,12 @@ export default function OrderHistoryPage() {
 
       window.location.assign(parsedPaymentUrl.href);
     } catch (error) {
-      notifyApiErrorToast(error, "Không thể tiếp tục thanh toán đơn hàng.");
+      const detailMessage =
+        Object.values(error?.fieldErrors || {})[0] ||
+        error?.message ||
+        "Không thể tiếp tục thanh toán đơn hàng.";
+      showGlobalToast(detailMessage, "error");
+    } finally {
       setContinuingPaymentOrderId(null);
     }
   };
@@ -372,6 +390,8 @@ export default function OrderHistoryPage() {
                       expanded={expandedOrderId === order.order_id}
                       onToggleDetails={toggleOrderDetails}
                       onCancelOrder={cancelOrder}
+                      onContinuePayment={continueOrderPayment}
+                      isContinuingPayment={continuingPaymentOrderId === order.order_id}
                       onOpenClaim={setClaimOrder}
                       onSwitchToClaimsTab={() => setActiveTab("claims")}
                     />

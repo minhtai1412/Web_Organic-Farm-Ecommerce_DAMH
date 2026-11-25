@@ -44,6 +44,8 @@ export default function OrderHistoryCard({
   expanded,
   onToggleDetails,
   onCancelOrder,
+  onContinuePayment,
+  isContinuingPayment,
   onOpenClaim,
   onSwitchToClaimsTab,
 }) {
@@ -193,7 +195,17 @@ export default function OrderHistoryCard({
               ? `Vận đơn: ${order.delivery.tracking_number}`
               : order.address?.detail || "Chưa có thông tin giao hàng"}
           </span>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {order.status === "Cho_thanh_toan" && onContinuePayment && (
+              <button
+                type="button"
+                disabled={isContinuingPayment}
+                onClick={() => onContinuePayment(order)}
+                className="rounded-lg bg-[#00450d] hover:bg-[#006e1c] px-3 py-1.5 text-xs font-bold text-white disabled:opacity-60 cursor-pointer"
+              >
+                {isContinuingPayment ? "Đang mở ApiPay..." : "Thanh toán ApiPay"}
+              </button>
+            )}
             {order.can_claim && (
               <button
                 type="button"

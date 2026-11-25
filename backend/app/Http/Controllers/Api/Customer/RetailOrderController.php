@@ -11,11 +11,14 @@ use App\Http\Requests\Customer\StoreOrderRequest;
 use App\Models\DiaChiGiaoHang;
 use App\Models\DonHang;
 use App\Models\GioHang;
+use App\Models\ThanhToan;
+use App\Services\ApiPayPaymentService;
 use App\Services\CartPricingService;
 use App\Services\GoongGeocodingService;
 use App\Services\Order\OrderCancellationService;
 use App\Services\Order\OrderCreationService;
 use App\Services\Order\ShippingEstimationException;
+
 use App\Services\RewardPointService;
 use App\Services\ShippingDistanceService;
 use App\Traits\ApiResponse;
@@ -28,6 +31,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
+use Throwable;
 
 class RetailOrderController extends Controller
 {
@@ -161,8 +165,7 @@ class RetailOrderController extends Controller
         Request $request,
         int $id,
         GoongGeocodingService $geocoder
-    ): JsonResponse
-    {
+    ): JsonResponse {
         $userId = $request->user()->getAuthIdentifier();
 
         $address = DiaChiGiaoHang::where('Ma_nguoi_dung', $userId)
@@ -261,7 +264,6 @@ class RetailOrderController extends Controller
         $wasDefault = (bool) $address->La_mac_dinh;
         $address->delete();
 
-        // Nếu vừa xóa địa chỉ mặc định, tự động gán địa chỉ còn lại gần nhất làm mặc định
         if ($wasDefault) {
             $nextAddress = DiaChiGiaoHang::where('Ma_nguoi_dung', $userId)
                 ->orderByDesc('Ma_dia_chi')
@@ -369,7 +371,6 @@ class RetailOrderController extends Controller
             'new_password.confirmed'    => 'Xác nhận mật khẩu mới không trùng khớp.',
         ]);
 
-        // Kiểm tra tính chính xác của mật khẩu hiện tại
         if (!Hash::check($validated['current_password'], $user->Mat_khau_ma_hoa)) {
             return $this->errorResponse(
                 message: 'Mật khẩu hiện tại không chính xác.',
@@ -379,7 +380,6 @@ class RetailOrderController extends Controller
             );
         }
 
-        // Cập nhật mật khẩu mã hóa mới
         $user->Mat_khau_ma_hoa = Hash::make($validated['new_password']);
         $user->save();
 
@@ -389,18 +389,53 @@ class RetailOrderController extends Controller
         );
     }
 
-    public function status(Request $request, int $orderId): JsonResponse
+    public function status(Request $request, int $orderId, ApiPayPaymentService $apiPay): JsonResponse
     {
         $order = DonHang::query()
             ->where('Ma_don_hang', $orderId)
             ->where('Ma_nguoi_dung', $request->user()->getAuthIdentifier())
             ->firstOrFail();
 
-        $payment = DB::table('thanh_toan')
+        $payment = ThanhToan::query()
             ->where('Ma_don_hang', $order->Ma_don_hang)
             ->where('Phuong_thuc', 'ApiPay')
             ->latest('Ma_thanh_toan')
             ->first();
+
+        if (
+            $order->Trang_thai === 'Cho_thanh_toan'
+            && $payment
+            && $payment->Trang_thai === 'Khoi_tao'
+            && ! empty($payment->Ma_yeu_cau_apipay)
+        ) {
+            try {
+                $remote = $apiPay->getPaymentRequest($payment->Ma_yeu_cau_apipay);
+                $remoteStatus = strtoupper((string) ($remote['status'] ?? ''));
+
+                if (in_array($remoteStatus, ['PAID', 'COMPLETED', 'SUCCESS'], true)) {
+                    DB::transaction(function () use ($order, $payment, $remote): void {
+                        $payment->update([
+                            'Ma_giao_dich_apipay' => $remote['transactionId'] ?? $payment->Ma_giao_dich_apipay,
+                            'Trang_thai' => 'Thanh_cong',
+                            'Thoi_gian_thanh_toan' => now(),
+                        ]);
+
+                        DonHang::query()
+                            ->where('Ma_don_hang', $order->Ma_don_hang)
+                            ->where('Trang_thai', 'Cho_thanh_toan')
+                            ->update(['Trang_thai' => 'Cho_xac_nhan']);
+                    });
+
+                    $order->refresh();
+                    $payment->refresh();
+                }
+            } catch (Throwable $e) {
+                Log::warning('Không thể đối soát trực tiếp trạng thái ApiPay.', [
+                    'order_id' => $order->Ma_don_hang,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
 
         return $this->successResponse(
             message: 'Lấy trạng thái đơn hàng thành công.',
@@ -517,36 +552,6 @@ class RetailOrderController extends Controller
             ->firstOrFail();
     }
 
-    private function addressRules(): array
-    {
-        return [
-            'recipient_name' => ['required', 'string', 'max:150'],
-            'phone' => ['required', 'string', 'regex:/^(?:\+84|0)\d{9,10}$/'],
-            'street' => ['required', 'string', 'max:255'],
-            'ward' => ['required', 'string', 'max:100'],
-            'district' => ['prohibited'],
-            'province' => ['required', 'string', 'max:100'],
-        ];
-    }
-
-    private function addressAttributes(array $validated): array
-    {
-        $attributes = [];
-        foreach ([
-            'recipient_name' => 'Ten_nguoi_nhan',
-            'phone' => 'So_dien_thoai_nguoi_nhan',
-            'street' => 'Dia_chi_chi_tiet',
-            'ward' => 'Phuong_xa',
-            'province' => 'Tinh_thanh',
-        ] as $input => $column) {
-            if (array_key_exists($input, $validated)) {
-                $attributes[$column] = $validated[$input];
-            }
-        }
-
-        return $attributes;
-    }
-
     private function geocodeAddress(array $address, GoongGeocodingService $geocoder): array
     {
         try {
@@ -587,24 +592,6 @@ class RetailOrderController extends Controller
             'Vi_do' => $coordinates['latitude'],
             'Kinh_do' => $coordinates['longitude'],
         ]);
-    }
-
-    private function formatAddress(DiaChiGiaoHang $address): array
-    {
-        return [
-            'id' => (int) $address->Ma_dia_chi,
-            'recipient_name' => $address->Ten_nguoi_nhan,
-            'phone' => $address->So_dien_thoai_nguoi_nhan,
-            'street' => $address->Dia_chi_chi_tiet,
-            'ward' => $address->Phuong_xa,
-            'province' => $address->Tinh_thanh,
-            'address' => implode(', ', array_filter([
-                $address->Dia_chi_chi_tiet,
-                $address->Phuong_xa,
-                $address->Tinh_thanh,
-            ])),
-            'is_default' => (bool) $address->La_mac_dinh,
-        ];
     }
 
     private function cartForCustomer(Request $request): GioHang

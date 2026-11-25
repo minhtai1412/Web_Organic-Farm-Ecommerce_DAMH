@@ -1,8 +1,8 @@
+// Thay thế toàn bộ file src/src/components/navigation/header/HeaderUserMenu.jsx
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   Award,
-  Calendar,
   ChevronDown,
   LayoutDashboard,
   LogOut,
@@ -114,20 +114,12 @@ export default function HeaderUserMenu({
                 {!isInternalStaff && (
                   <>
                     <Link
-                      to="/orders"
+                      to="/rewards?tab=orders"
                       onClick={closeMenus}
                       className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-[#41493e] hover:text-[#00450d] hover:bg-[#f2f4f2] transition-colors"
                     >
                       <Receipt className="w-4 h-4 text-[#5a6357]" />
                       <span>Đơn hàng của tôi</span>
-                    </Link>
-                    <Link
-                      to="/subscriptions"
-                      onClick={closeMenus}
-                      className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-[#41493e] hover:text-[#00450d] hover:bg-[#f2f4f2] transition-colors"
-                    >
-                      <Calendar className="w-4 h-4 text-[#5a6357]" />
-                      <span>Gói rau định kỳ</span>
                     </Link>
                     <Link
                       to="/rewards?tab=rewards"

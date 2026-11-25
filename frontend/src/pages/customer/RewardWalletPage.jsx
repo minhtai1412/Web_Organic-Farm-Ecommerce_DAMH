@@ -5,18 +5,17 @@
  * 2. Sổ địa chỉ giao hàng (Danh sách thẻ địa chỉ, thiết lập mặc định, thêm/sửa/xóa)
  * 3. Đổi mật khẩu tài khoản (Bảo mật 3 lớp xác thực)
  * 4. Ví điểm thưởng & Lịch sử xu/điểm (Số dư, quy đổi, bộ lọc lịch sử)
+ * 5. Đơn mua của tôi (Tất cả đơn hàng, Gói định kỳ, Khiếu nại)
  * ========================================================================== */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import {
   MapPin,
   Lock,
   User,
   Package,
-  Calendar,
   Coins,
-  ShoppingBag,
 } from "lucide-react";
 import { useAuth } from "../../context/useAuth";
 import { customerApi } from "../../services/customerApi";
@@ -24,18 +23,22 @@ import { showGlobalToast, confirmGlobalDialog } from "../../components/GlobalToa
 import ProfileInfoTab from "../../components/customer/profile/ProfileInfoTab";
 import AddressBookTab from "../../components/customer/profile/AddressBookTab";
 import RewardHistoryTab from "../../components/customer/profile/RewardHistoryTab";
+import OrdersHistoryTab from "../../components/customer/profile/OrdersHistoryTab";
 
 export default function RewardWalletPage() {
   const { user, setUser } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Xác định tab hiện tại từ query param: profile | address | password | rewards
+  // Xác định tab hiện tại từ query param: profile | address | password | rewards | orders
   const tabParam = searchParams.get("tab");
+  const subTabParam = searchParams.get("sub");
+
   const getNormalizedTab = (param) => {
     if (param === "address") return "address";
     if (param === "password") return "password";
     if (param === "rewards") return "rewards";
-    return "profile"; // Mặc định mở tab Hồ sơ cá nhân theo chuẩn Shopee
+    if (param === "orders") return "orders";
+    return "profile";
   };
 
   const [activeTab, setActiveTab] = useState(() => getNormalizedTab(tabParam));
@@ -46,9 +49,12 @@ export default function RewardWalletPage() {
     }
   }, [tabParam]);
 
-  const switchTab = (tabName) => {
+  const switchTab = (tabName, subTab = null) => {
     setActiveTab(tabName);
-    setSearchParams({ tab: tabName }, { replace: true });
+    setSearchParams(
+      subTab ? { tab: tabName, sub: subTab } : { tab: tabName },
+      { replace: true }
+    );
   };
 
   /* ==========================================================================
@@ -69,7 +75,8 @@ export default function RewardWalletPage() {
 
   useEffect(() => {
     if (user) {
-      const savedAvatar = user.avatar || (user.id ? localStorage.getItem(`user_avatar_${user.id}`) : null);
+      const savedAvatar =
+        user.avatar || (user.id ? localStorage.getItem(`user_avatar_${user.id}`) : null);
       if (savedAvatar) {
         setAvatar(savedAvatar);
       }
@@ -369,7 +376,7 @@ export default function RewardWalletPage() {
         ...response.data,
         history: append
           ? [...(current?.history || []), ...(response.data?.history || [])]
-          : (response.data?.history || []),
+          : response.data?.history || [],
       }));
       setWalletHistoryMeta(response.meta?.history || null);
     } catch {
@@ -386,7 +393,8 @@ export default function RewardWalletPage() {
   }, [activeTab, fetchWallet]);
 
   const filteredHistory = (walletData?.history || []).filter((item) => {
-    if (historyFilter === "earned") return item.transaction_type === "Tich_diem" || item.transaction_type === "Hoan_diem";
+    if (historyFilter === "earned")
+      return item.transaction_type === "Tich_diem" || item.transaction_type === "Hoan_diem";
     if (historyFilter === "spent") return item.transaction_type === "Su_dung";
     return true;
   });
@@ -402,12 +410,12 @@ export default function RewardWalletPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f5f5f5] py-8 sm:py-10">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        {/* ================= KHUNG BỐ CỤC CHÍNH CHUẨN SHOPEE (SIDEBAR + MAIN) ================= */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
-          {/* ================= CỘT TRÁI: SIDEBAR TÀI KHOẢN (SHOPEE STYLE) ================= */}
-          <aside className="md:col-span-1 space-y-4">
+    <div className="min-h-[calc(100vh-5rem)] md:h-[calc(100vh-5rem)] md:overflow-hidden bg-[#f5f5f5] py-6 sm:py-7">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-full">
+        {/* ================= KHUNG BỐ CỤC CHÍNH (CỘT TRÁI CỐ ĐỊNH + CỘT PHẢI CUỘN RIÊNG) ================= */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 h-full items-start">
+          {/* ================= CỘT TRÁI: SIDEBAR TÀI KHOẢN (CỐ ĐỊNH) ================= */}
+          <aside className="md:col-span-3 space-y-4 md:sticky md:top-0">
             {/* Thẻ đại diện người dùng */}
             <div className="bg-white rounded-2xl p-4 border border-[#e5e7eb] flex items-center gap-3 shadow-2xs">
               <div className="w-12 h-12 rounded-full bg-[#00450d] text-white flex items-center justify-center font-extrabold text-lg shrink-0 overflow-hidden border border-slate-200">
@@ -439,10 +447,11 @@ export default function RewardWalletPage() {
               <button
                 type="button"
                 onClick={() => switchTab("profile")}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${activeTab === "profile"
-                  ? "bg-[#00450d]/10 text-[#00450d] font-bold"
-                  : "text-[#41493e] hover:bg-[#f3f4f6]"
-                  }`}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${
+                  activeTab === "profile"
+                    ? "bg-[#00450d]/10 text-[#00450d] font-bold"
+                    : "text-[#41493e] hover:bg-[#f3f4f6]"
+                }`}
               >
                 <User className="w-4 h-4 text-[#00450d]" />
                 <span>Hồ sơ của tôi</span>
@@ -451,10 +460,11 @@ export default function RewardWalletPage() {
               <button
                 type="button"
                 onClick={() => switchTab("address")}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${activeTab === "address"
-                  ? "bg-[#00450d]/10 text-[#00450d] font-bold"
-                  : "text-[#41493e] hover:bg-[#f3f4f6]"
-                  }`}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${
+                  activeTab === "address"
+                    ? "bg-[#00450d]/10 text-[#00450d] font-bold"
+                    : "text-[#41493e] hover:bg-[#f3f4f6]"
+                }`}
               >
                 <MapPin className="w-4 h-4 text-[#00450d]" />
                 <span>Địa chỉ nhận hàng</span>
@@ -463,10 +473,11 @@ export default function RewardWalletPage() {
               <button
                 type="button"
                 onClick={() => switchTab("password")}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${activeTab === "password"
-                  ? "bg-[#00450d]/10 text-[#00450d] font-bold"
-                  : "text-[#41493e] hover:bg-[#f3f4f6]"
-                  }`}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${
+                  activeTab === "password"
+                    ? "bg-[#00450d]/10 text-[#00450d] font-bold"
+                    : "text-[#41493e] hover:bg-[#f3f4f6]"
+                }`}
               >
                 <Lock className="w-4 h-4 text-[#00450d]" />
                 <span>Đổi mật khẩu</span>
@@ -475,10 +486,11 @@ export default function RewardWalletPage() {
               <button
                 type="button"
                 onClick={() => switchTab("rewards")}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${activeTab === "rewards"
-                  ? "bg-[#00450d]/10 text-[#00450d] font-bold"
-                  : "text-[#41493e] hover:bg-[#f3f4f6]"
-                  }`}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${
+                  activeTab === "rewards"
+                    ? "bg-[#00450d]/10 text-[#00450d] font-bold"
+                    : "text-[#41493e] hover:bg-[#f3f4f6]"
+                }`}
               >
                 <Coins className="w-4 h-4 text-[#00450d]" />
                 <span>Ví điểm thưởng</span>
@@ -486,34 +498,23 @@ export default function RewardWalletPage() {
 
               <div className="pt-2 my-1 border-t border-slate-100" />
 
-              <Link
-                to="/orders"
-                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-[#41493e] hover:bg-[#f3f4f6] transition-colors"
+              <button
+                type="button"
+                onClick={() => switchTab("orders", "orders")}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${
+                  activeTab === "orders"
+                    ? "bg-[#00450d]/10 text-[#00450d] font-bold"
+                    : "text-[#41493e] hover:bg-[#f3f4f6]"
+                }`}
               >
-                <Package className="w-4 h-4 text-[#5a6357]" />
+                <Package className="w-4 h-4 text-[#00450d]" />
                 <span>Đơn mua của tôi</span>
-              </Link>
-
-              <Link
-                to="/subscriptions"
-                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-[#41493e] hover:bg-[#f3f4f6] transition-colors"
-              >
-                <Calendar className="w-4 h-4 text-[#5a6357]" />
-                <span>Gói rau định kỳ</span>
-              </Link>
-
-              <Link
-                to="/cart"
-                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-[#41493e] hover:bg-[#f3f4f6] transition-colors"
-              >
-                <ShoppingBag className="w-4 h-4 text-[#5a6357]" />
-                <span>Giỏ hàng nông sản</span>
-              </Link>
+              </button>
             </nav>
           </aside>
 
-          {/* ================= CỘT PHẢI: KHUNG NỘI DUNG CHÍNH (SHOPEE MAIN CONTAINER) ================= */}
-          <main className="md:col-span-3 bg-white rounded-2xl border border-[#e5e7eb] p-6 sm:p-8 shadow-xs min-h-[560px]">
+          {/* ================= CỘT PHẢI: KHUNG NỘI DUNG CHÍNH (CUỘN ĐỘC LẬP) ================= */}
+          <main className="md:col-span-9 bg-white rounded-2xl border border-[#e5e7eb] p-6 sm:p-8 shadow-xs md:h-full md:overflow-y-auto">
             <ProfileInfoTab
               activeTab={activeTab}
               user={user}
@@ -554,6 +555,12 @@ export default function RewardWalletPage() {
                 walletHistoryMeta={walletHistoryMeta}
                 loadMoreWalletHistory={loadMoreWalletHistory}
                 walletHistoryLoadingMore={walletHistoryLoadingMore}
+              />
+            )}
+            {activeTab === "orders" && (
+              <OrdersHistoryTab
+                initialSubTab={subTabParam || "orders"}
+                onSubTabChange={(nextSub) => switchTab("orders", nextSub)}
               />
             )}
           </main>

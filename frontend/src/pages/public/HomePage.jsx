@@ -53,7 +53,7 @@ export default function HomePage() {
   return (
     <div className="pb-14 sm:pb-20 overflow-x-hidden">
       {/* 1. Hero Banner chính */}
-      <HeroSection />
+      <HeroSection products={featuredProducts} />
 
       {/* 2. Các phân khu nội dung giữ nhịp khoảng cách đồng đều Mobile -> Desktop */}
       <div className="space-y-10 sm:space-y-14 lg:space-y-16 mt-6 sm:mt-8 lg:mt-10">

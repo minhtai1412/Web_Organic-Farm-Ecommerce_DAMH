@@ -10,6 +10,31 @@ import { showGlobalToast } from "../../components/GlobalToast";
 import { useCart } from "../../context/useCart";
 import { customerApi } from "../../services/customerApi";
 
+const PENDING_ORDER_STORAGE_KEY = "xanhfarm_pending_checkout_order";
+
+function loadSavedPendingOrder() {
+  try {
+    const raw = sessionStorage.getItem(PENDING_ORDER_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && (parsed.order_id || parsed.id) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function savePendingOrder(orderData) {
+  try {
+    if (!orderData) {
+      sessionStorage.removeItem(PENDING_ORDER_STORAGE_KEY);
+    } else {
+      sessionStorage.setItem(PENDING_ORDER_STORAGE_KEY, JSON.stringify(orderData));
+    }
+  } catch {
+    // Bỏ qua nếu trình duyệt chặn storage
+  }
+}
+
 function createIdempotencyKey() {
   const bytes = new Uint8Array(16);
   globalThis.crypto.getRandomValues(bytes);
@@ -95,8 +120,8 @@ export default function CheckoutPage() {
   const [submitError, setSubmitError] = useState("");
   const idempotencyKeyRef = useRef(createIdempotencyKey());
 
-  // Trạng thái đơn hàng đã tạo đang chờ thanh toán ApiPay
-  const [createdOrder, setCreatedOrder] = useState(null);
+  // Trạng thái đơn hàng đã tạo đang chờ thanh toán ApiPay (khôi phục được khi F5)
+  const [createdOrder, setCreatedOrder] = useState(() => loadSavedPendingOrder());
   const [checkingPayment, setCheckingPayment] = useState(false);
 
   const normalizedItems = useMemo(() => {
@@ -109,11 +134,11 @@ export default function CheckoutPage() {
         raw.category?.name ?? raw.category_name ?? product.category?.name ?? "";
       const unitPrice = Number(
         raw.unit_price ??
-        raw.effective_price ??
-        raw.price ??
-        product.effective_price ??
-        product.price ??
-        0
+          raw.effective_price ??
+          raw.price ??
+          product.effective_price ??
+          product.price ??
+          0
       );
       const quantity = Math.max(0, Number(raw.quantity ?? 1) || 1);
       const subtotal = Number(raw.subtotal ?? unitPrice * quantity);
@@ -276,6 +301,22 @@ export default function CheckoutPage() {
     setSubmitting(true);
     setSubmitError("");
 
+    const addressSnapshot = selectedAddress
+      ? {
+          recipient_name: selectedAddress.recipient_name,
+          phone: selectedAddress.phone,
+          address: selectedAddress.address,
+        }
+      : null;
+    const itemsSnapshot = normalizedItems.map((item) => ({
+      productId: item.productId,
+      name: item.name,
+      unit: item.unit,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      subtotal: item.subtotal,
+    }));
+
     try {
       const res = await customerApi.createRetailOrder({
         address_id: Number(selectedAddressId),
@@ -284,18 +325,40 @@ export default function CheckoutPage() {
         note: note.trim() || null,
         idempotency_key: idempotencyKeyRef.current,
       });
-      const data = res?.data?.data ?? res?.data ?? {};
+      let data = res?.data?.data ?? res?.data ?? {};
+      const createdOrderId = data.order_id ?? data.id;
+
+      // Nếu API tạo đơn chưa trả kèm mã QR ApiPay thì gọi tiếp bước khởi tạo thanh toán
+      if (paymentMethod === "ApiPay" && createdOrderId && !data.pay_url && !data.qr_url) {
+        const payRes = await customerApi.checkout({ order_id: Number(createdOrderId) });
+        const payData = payRes?.data?.data ?? payRes?.data ?? {};
+        data = { ...data, ...payData };
+      }
 
       await refreshCart?.();
       idempotencyKeyRef.current = createIdempotencyKey();
 
       if (paymentMethod === "COD" || (!data.pay_url && !data.qr_url)) {
+        savePendingOrder(null);
         showGlobalToast("Đặt hàng thành công! Đơn hàng đang được chuẩn bị.", "success");
         navigate("/orders");
         return;
       }
 
-      setCreatedOrder(data);
+      const pendingOrderSnapshot = {
+        ...data,
+        order_id: createdOrderId,
+        subtotal: Number(data.subtotal ?? itemsSubtotal),
+        shipping_fee: Number(data.shipping_fee ?? shippingFee),
+        points_discount: Number(data.points_discount ?? pointsDiscount),
+        total: Number(data.total ?? finalTotal),
+        address: data.address ?? addressSnapshot,
+        items: Array.isArray(data.items) && data.items.length > 0 ? data.items : itemsSnapshot,
+        _created_at_ms: Date.now(),
+      };
+
+      savePendingOrder(pendingOrderSnapshot);
+      setCreatedOrder(pendingOrderSnapshot);
       showGlobalToast("Đã tạo đơn hàng. Vui lòng hoàn tất thanh toán ApiPay.", "info");
     } catch (err) {
       if (err?.status === 409) idempotencyKeyRef.current = createIdempotencyKey();
@@ -305,32 +368,59 @@ export default function CheckoutPage() {
     }
   };
 
-  const handleCheckPaymentStatus = async () => {
-    const orderId = createdOrder?.order_id ?? createdOrder?.id;
-    if (!orderId || checkingPayment) return;
+  const verifyOrderPaymentStatus = useCallback(
+    async (silent = false) => {
+      const orderId = createdOrder?.order_id ?? createdOrder?.id;
+      if (!orderId) return;
 
-    setCheckingPayment(true);
-    try {
-      const res = await customerApi.getRetailOrderStatus(orderId);
-      const statusData = res?.data?.data ?? res?.data ?? {};
-      if (
-        statusData.payment_status === "Thanh_cong" ||
-        statusData.status === "Da_xac_nhan"
-      ) {
-        showGlobalToast("Thanh toán thành công! Đơn hàng đã được xác nhận.", "success");
-        navigate("/orders");
-      } else {
-        showGlobalToast(
-          "Hệ thống chưa nhận được giao dịch thanh toán. Vui lòng thử lại sau ít giây.",
-          "info"
-        );
+      if (!silent) setCheckingPayment(true);
+      try {
+        const res = await customerApi.getRetailOrderStatus(orderId);
+        const statusData = res?.data?.data ?? res?.data ?? {};
+        const isPaid =
+          statusData.payment_status === "Thanh_cong" ||
+          ["Cho_xac_nhan", "Da_xac_nhan", "Dang_giao", "Hoan_thanh"].includes(statusData.status);
+
+        if (isPaid) {
+          savePendingOrder(null);
+          setCreatedOrder(null);
+          showGlobalToast("Thanh toán thành công! Đơn hàng đã được xác nhận.", "success");
+          navigate("/orders");
+        } else if (statusData.status === "Da_huy") {
+          savePendingOrder(null);
+          setCreatedOrder(null);
+          if (!silent) {
+            showGlobalToast("Đơn hàng đã bị hủy hoặc hết hạn thanh toán.", "warning");
+          }
+          navigate("/orders");
+        } else if (!silent) {
+          showGlobalToast(
+            "Hệ thống chưa nhận được giao dịch thanh toán. Vui lòng thử lại sau ít giây.",
+            "info"
+          );
+        }
+      } catch (err) {
+        if (!silent) {
+          showGlobalToast(apiErrorMessage(err, "Không thể kiểm tra trạng thái thanh toán."), "error");
+        }
+      } finally {
+        if (!silent) setCheckingPayment(false);
       }
-    } catch (err) {
-      showGlobalToast(apiErrorMessage(err, "Không thể kiểm tra trạng thái thanh toán."), "error");
-    } finally {
-      setCheckingPayment(false);
-    }
-  };
+    },
+    [createdOrder, navigate]
+  );
+
+  // Tự động kiểm tra trạng thái thanh toán mỗi 5 giây khi đang hiện mã QR
+  useEffect(() => {
+    const orderId = createdOrder?.order_id ?? createdOrder?.id;
+    if (!orderId) return undefined;
+
+    const interval = window.setInterval(() => {
+      verifyOrderPaymentStatus(true);
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, [createdOrder, verifyOrderPaymentStatus]);
 
   return (
     <div className="bg-[#f6f8f6] min-h-[calc(100dvh-5rem)] lg:h-[calc(100dvh-5rem)] flex flex-col lg:overflow-hidden">
@@ -356,6 +446,10 @@ export default function CheckoutPage() {
 
           <Link
             to="/cart"
+            onClick={() => {
+              savePendingOrder(null);
+              setCreatedOrder(null);
+            }}
             className="h-8.5 sm:h-9 px-3 sm:px-3.5 rounded-xl bg-white hover:bg-[#f2f4f2] text-[#191c1b] border border-[#c0c9bb]/70 text-xs font-bold inline-flex items-center gap-1.5 transition-colors shrink-0"
           >
             <ArrowLeft className="w-3.5 h-3.5 text-[#006e1c]" />
@@ -365,18 +459,20 @@ export default function CheckoutPage() {
       </header>
 
       {/* 2. Khu vực nội dung 2 cột */}
-      <div className="flex-1 min-h-0 max-w-7xl w-full mx-auto px-4 sm:px-6 py-4 sm:py-5">
-        {bootLoading || cartLoading ? (
+      <div className="flex-1 min-h-0 max-w-7xl w-full mx-auto px-4 sm:px-6 py-4 sm:py-5 overflow-y-auto lg:overflow-hidden">
+        {createdOrder ? (
+          <div className="h-full lg:overflow-y-auto pb-6">
+            <CheckoutPendingPayment
+              order={createdOrder}
+              checkingPayment={checkingPayment}
+              onCheckStatus={() => verifyOrderPaymentStatus(false)}
+            />
+          </div>
+        ) : bootLoading || cartLoading ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div className="lg:col-span-6 h-64 rounded-3xl bg-white border border-[#c0c9bb]/40 animate-pulse" />
             <div className="lg:col-span-6 h-96 rounded-3xl bg-white border border-[#c0c9bb]/40 animate-pulse" />
           </div>
-        ) : createdOrder ? (
-          <CheckoutPendingPayment
-            order={createdOrder}
-            checkingPayment={checkingPayment}
-            onCheckStatus={handleCheckPaymentStatus}
-          />
         ) : normalizedItems.length === 0 ? (
           <div className="max-w-lg mx-auto rounded-3xl bg-white border border-[#c0c9bb]/50 p-10 text-center space-y-4">
             <ShoppingBag className="w-10 h-10 text-[#006e1c] mx-auto" />

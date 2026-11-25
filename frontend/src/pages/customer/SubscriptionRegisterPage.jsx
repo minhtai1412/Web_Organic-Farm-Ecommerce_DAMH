@@ -2,25 +2,22 @@
  * TRANG ĐĂNG KÝ GÓI RAU CỦ ĐỊNH KỲ (SUBSCRIPTION REGISTER PAGE)
  * ========================================================================== */
 import { useCallback, useEffect, useState } from "react";
-import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   AlertCircle,
   ArrowLeft,
   CalendarCheck2,
   CheckCircle2,
-  ExternalLink,
   Eye,
   PauseCircle,
-  QrCode,
-  RefreshCw,
   ShieldCheck,
   Sparkles,
   Sprout,
-  XCircle,
 } from "lucide-react";
 import { useAuth } from "../../context/useAuth";
 import { customerApi } from "../../services/customerApi";
 import { storefrontApi } from "../../services/storefrontApi";
+import SubscriptionPendingPayment from "../../components/customer/SubscriptionPendingPayment";
 import SubscriptionScheduleForm from "../../components/customer/SubscriptionScheduleForm";
 import { confirmGlobalDialog, showGlobalToast } from "../../components/GlobalToast";
 
@@ -43,24 +40,53 @@ function createIdempotencyKey() {
 
 function apiErrorMessage(error) {
   const validationMessages = Object.values(
-    error.fieldErrors ?? error.response?.data?.errors ?? {}
+    error?.fieldErrors ?? error?.response?.data?.errors ?? {}
   ).flat();
   return (
     validationMessages[0] ||
-    error.message ||
-    error.response?.data?.message ||
+    error?.message ||
+    error?.response?.data?.message ||
     "Không thể xử lý đăng ký. Vui lòng thử lại."
   );
 }
 
+function readJsonStorage(key) {
+  if (!key) return null;
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeJsonStorage(key, value) {
+  if (!key) return;
+  try {
+    if (value == null) {
+      window.localStorage.removeItem(key);
+    } else {
+      window.localStorage.setItem(key, JSON.stringify(value));
+    }
+  } catch {
+    // Bỏ qua nếu trình duyệt chặn storage
+  }
+}
+
 export default function SubscriptionRegisterPage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const isAdminPreview = user?.role === "admin";
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const selectedProduct = location.state?.product;
+
   const subscriptionStorageKey =
     !isAdminPreview && user?.id ? `xanhfarm:pendingSubscription:${user.id}` : null;
+  const paymentStorageKey =
+    !isAdminPreview && user?.id ? `xanhfarm:pendingSubscriptionPayment:${user.id}` : null;
+  const summaryStorageKey =
+    !isAdminPreview && user?.id ? `xanhfarm:pendingSubscriptionSummary:${user.id}` : null;
   const idempotencyStorageKey =
     !isAdminPreview && user?.id ? `xanhfarm:pendingSubscriptionIdempotency:${user.id}` : null;
 
@@ -80,38 +106,42 @@ export default function SubscriptionRegisterPage() {
   const [minStartDate] = useState(() => localDateString());
   const [deliveryDays, setDeliveryDays] = useState([]);
   const [apiPayReady, setApiPayReady] = useState(false);
+
   const [subscriptionId, setSubscriptionId] = useState(() =>
     subscriptionStorageKey ? window.localStorage.getItem(subscriptionStorageKey) ?? "" : ""
   );
-  const [payment, setPayment] = useState(null);
+  const [payment, setPayment] = useState(() => readJsonStorage(paymentStorageKey));
+  const [pendingSummary, setPendingSummary] = useState(() => readJsonStorage(summaryStorageKey));
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
-  const [statusRefresh, setStatusRefresh] = useState(0);
+
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [checkingStatus, setCheckingStatus] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [notice, setNotice] = useState("");
-  const paymentUrl = payment?.pay_url || payment?.payment_url;
 
   const clearPendingSubscriptionStorage = useCallback(() => {
     if (subscriptionStorageKey) window.localStorage.removeItem(subscriptionStorageKey);
+    if (paymentStorageKey) window.localStorage.removeItem(paymentStorageKey);
+    if (summaryStorageKey) window.localStorage.removeItem(summaryStorageKey);
     if (idempotencyStorageKey) window.localStorage.removeItem(idempotencyStorageKey);
-  }, [subscriptionStorageKey, idempotencyStorageKey]);
+  }, [subscriptionStorageKey, paymentStorageKey, summaryStorageKey, idempotencyStorageKey]);
 
   useEffect(() => {
     let active = true;
 
     const loadData = isAdminPreview
       ? Promise.all([
-          storefrontApi.getSubscriptions(),
-          Promise.resolve({ data: { data: [] } }),
-          Promise.resolve({ data: { ready: false } }),
-        ])
+        storefrontApi.getSubscriptions(),
+        Promise.resolve({ data: { data: [] } }),
+        Promise.resolve({ data: { ready: false } }),
+      ])
       : Promise.all([
-          storefrontApi.getSubscriptions(),
-          customerApi.getAddresses(),
-          customerApi.getCheckoutOptions(),
-        ]);
+        storefrontApi.getSubscriptions(),
+        customerApi.getAddresses(),
+        customerApi.getCheckoutOptions(),
+      ]);
 
     loadData
       .then(([availablePackages, addressResponse, optionsResponse]) => {
@@ -129,19 +159,19 @@ export default function SubscriptionRegisterPage() {
 
         const productPackage = selectedProduct
           ? availablePackages.find((item) =>
-              item.items?.some(
-                (packageItem) => String(packageItem.product_id) === String(selectedProduct.id)
-              )
+            item.items?.some(
+              (packageItem) => String(packageItem.product_id) === String(selectedProduct.id)
             )
+          )
           : null;
         setPackageId(
           (current) =>
             current ||
             String(
               productPackage?.id ??
-                searchParams.get("package_id") ??
-                availablePackages[0]?.id ??
-                ""
+              searchParams.get("package_id") ??
+              availablePackages[0]?.id ??
+              ""
             )
         );
       })
@@ -157,43 +187,75 @@ export default function SubscriptionRegisterPage() {
     };
   }, [searchParams, selectedProduct, isAdminPreview]);
 
-  useEffect(() => {
-    if (!subscriptionId || isAdminPreview) return undefined;
-    let active = true;
-    customerApi
-      .getSubscriptionStatus(subscriptionId)
-      .then((response) => {
-        if (!active) return;
-        const status = response.data?.data ?? response.data;
+  // Hàm kiểm tra trạng thái đăng ký gói (dùng cho cả polling tự động 5s và nút bấm thủ công)
+  const verifySubscriptionPaymentStatus = useCallback(
+    async (silent = false) => {
+      if (!subscriptionId || isAdminPreview) return;
+
+      if (!silent) {
+        setErrorMessage("");
+        setCheckingStatus(true);
+      }
+
+      try {
+        const response = await customerApi.getSubscriptionStatus(subscriptionId);
+        const status = response.data?.data ?? response.data ?? {};
         setSubscriptionStatus(status);
+
         if (status?.status === "Dang_hoat_dong") {
           clearPendingSubscriptionStorage();
           setSubscriptionId("");
           setPayment(null);
-          setNotice("Thanh toán thành công. Gói rau định kỳ của bạn đã được kích hoạt.");
+          setPendingSummary(null);
+          setSubscriptionStatus(null);
+          showGlobalToast(
+            "Thanh toán thành công! Gói rau định kỳ của bạn đã được kích hoạt.",
+            "success"
+          );
+          navigate("/rewards?tab=orders&sub=subscriptions");
         } else if (status?.status === "Da_huy" || status?.status === "Het_han") {
           clearPendingSubscriptionStorage();
           setSubscriptionId("");
           setPayment(null);
+          setPendingSummary(null);
           setSubscriptionStatus(null);
+          if (!silent) {
+            showGlobalToast("Đăng ký gói định kỳ đã bị hủy hoặc hết hạn.", "warning");
+          }
+        } else if (!silent) {
+          showGlobalToast(
+            "Hệ thống chưa nhận được giao dịch thanh toán. Vui lòng thử lại sau ít giây.",
+            "info"
+          );
         }
-      })
-      .catch((error) => {
-        if (!active) return;
-        if (error.status === 404) {
+      } catch (error) {
+        if (error?.status === 404) {
           clearPendingSubscriptionStorage();
           setSubscriptionId("");
           setPayment(null);
+          setPendingSummary(null);
           setSubscriptionStatus(null);
-        } else {
+        } else if (!silent) {
           setErrorMessage(apiErrorMessage(error));
         }
-      });
+      } finally {
+        if (!silent) setCheckingStatus(false);
+      }
+    },
+    [subscriptionId, isAdminPreview, clearPendingSubscriptionStorage, navigate]
+  );
 
-    return () => {
-      active = false;
-    };
-  }, [subscriptionId, statusRefresh, clearPendingSubscriptionStorage, isAdminPreview]);
+  // Kiểm tra ngay khi có subscriptionId và tự động polling mỗi 5 giây
+  useEffect(() => {
+    if (!subscriptionId || isAdminPreview) return undefined;
+
+    verifySubscriptionPaymentStatus(true);
+    const interval = window.setInterval(() => {
+      verifySubscriptionPaymentStatus(true);
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, [subscriptionId, isAdminPreview, verifySubscriptionPaymentStatus]);
 
   const startPayment = async (id) => {
     if (isAdminPreview) {
@@ -204,7 +266,9 @@ export default function SubscriptionRegisterPage() {
     setIsSubmitting(true);
     try {
       const response = await customerApi.checkoutSubscription(id);
-      setPayment(response.data?.data ?? response.data ?? null);
+      const paymentData = response.data?.data ?? response.data ?? null;
+      setPayment(paymentData);
+      writeJsonStorage(paymentStorageKey, paymentData);
       setNotice("Đăng ký đã được lưu. Hoàn tất thanh toán để kích hoạt gói.");
     } catch (error) {
       setErrorMessage(apiErrorMessage(error));
@@ -231,14 +295,16 @@ export default function SubscriptionRegisterPage() {
       clearPendingSubscriptionStorage();
       setSubscriptionId("");
       setPayment(null);
+      setPendingSummary(null);
       setSubscriptionStatus(null);
       showGlobalToast("Đã hủy đăng ký gói định kỳ.", "info");
       setNotice("Đã hủy đăng ký gói định kỳ. Bạn có thể chọn gói mới bất kỳ lúc nào.");
     } catch (error) {
-      if (error.status === 404) {
+      if (error?.status === 404) {
         clearPendingSubscriptionStorage();
         setSubscriptionId("");
         setPayment(null);
+        setPendingSummary(null);
         setSubscriptionStatus(null);
       } else {
         setErrorMessage(apiErrorMessage(error));
@@ -258,6 +324,34 @@ export default function SubscriptionRegisterPage() {
     setErrorMessage("");
     setNotice("");
     setIsSubmitting(true);
+
+    // Tạo bản chụp gói, địa chỉ & lịch giao để hiển thị bên cột phải màn hình QR
+    const chosenPackage = packages.find((item) => String(item.id) === String(packageId)) || null;
+    const savedAddressObj =
+      addressMode === "saved"
+        ? addresses.find((item) => String(item.id) === String(addressId)) || null
+        : null;
+    const addressSnapshot = savedAddressObj
+      ? {
+        recipient_name: savedAddressObj.recipient_name,
+        phone: savedAddressObj.phone,
+        address: savedAddressObj.address,
+      }
+      : {
+        recipient_name: shippingAddress.recipient_name,
+        phone: shippingAddress.phone,
+        address: [shippingAddress.street, shippingAddress.ward, shippingAddress.province]
+          .filter(Boolean)
+          .join(", "),
+      };
+
+    const summarySnapshot = {
+      package: chosenPackage,
+      address: addressSnapshot,
+      startDate,
+      deliveryDays,
+      _created_at_ms: Date.now(),
+    };
 
     try {
       let id = subscriptionId;
@@ -290,10 +384,14 @@ export default function SubscriptionRegisterPage() {
       }
 
       const checkout = await customerApi.checkoutSubscription(id);
-      setPayment(checkout.data?.data ?? checkout.data ?? null);
-      setNotice("Đăng ký đã được lưu. Hoàn tất thanh toán để kích hoạt gói.");
+      const paymentData = checkout.data?.data ?? checkout.data ?? null;
+      setPayment(paymentData);
+      setPendingSummary(summarySnapshot);
+      writeJsonStorage(paymentStorageKey, paymentData);
+      writeJsonStorage(summaryStorageKey, summarySnapshot);
+      showGlobalToast("Đã tạo đăng ký gói. Vui lòng hoàn tất thanh toán ApiPay.", "info");
     } catch (error) {
-      if (error.status === 409 && idempotencyStorageKey) {
+      if (error?.status === 409 && idempotencyStorageKey) {
         window.localStorage.removeItem(idempotencyStorageKey);
       }
       setErrorMessage(apiErrorMessage(error));
@@ -308,8 +406,8 @@ export default function SubscriptionRegisterPage() {
       return existing
         ? current.filter((item) => item.weekday !== weekday)
         : [...current, { weekday, delivery_window: "08:00 - 10:00" }].sort(
-            (left, right) => left.weekday - right.weekday
-          );
+          (left, right) => left.weekday - right.weekday
+        );
     });
   };
 
@@ -367,100 +465,62 @@ export default function SubscriptionRegisterPage() {
         </div>
       )}
 
-      {/* ================= HERO BANNER & THANH 3 BƯỚC ================= */}
-      <header className="mb-7 overflow-hidden rounded-3xl bg-gradient-to-br from-[#00450d] via-[#065214] to-[#006e1c] text-white shadow-sm border border-[#0b5e1a]">
-        <div className="p-6 sm:p-8 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="space-y-3 max-w-2xl">
+      {/* ================= HERO BANNER & THANH 3 BƯỚC THU GỌN ================= */}
+      <header className="mb-5 overflow-hidden rounded-2xl bg-gradient-to-r from-[#00450d] via-[#065214] to-[#006e1c] text-white shadow-xs border border-[#0b5e1a]">
+        <div className="px-5 py-4 sm:px-6 sm:py-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          {/* Cột trái: Tiêu đề + mô tả ngắn gọn */}
+          <div className="space-y-1.5 min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/12 border border-white/20 text-[11px] font-extrabold uppercase tracking-wider text-[#91f78e]">
-                <CalendarCheck2 className="w-3.5 h-3.5" />
-                Nông sản sạch · Giao định kỳ
-              </span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-400 text-slate-950 text-[11px] font-black">
-                <Sparkles className="w-3 h-3" />
-                Tiết kiệm 20%
-              </span>
+              <h1
+                className="text-xl sm:text-2xl font-extrabold tracking-tight text-white leading-tight"
+                style={{ fontFamily: "var(--font-headline)" }}
+              >
+                Đăng ký gói rau định kỳ
+              </h1>
             </div>
 
-            <h1
-              className="text-2xl sm:text-3xl lg:text-[34px] font-extrabold tracking-tight text-white leading-tight"
-              style={{ fontFamily: "var(--font-headline)" }}
-            >
-              Đăng ký gói rau định kỳ
-            </h1>
-
-            <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed">
-              Chọn gói rau hữu cơ theo nhu cầu gia đình, thiết lập lịch giao cố định hằng tuần và
-              địa chỉ nhận hàng. Đăng ký được kích hoạt ngay sau khi ApiPay xác nhận thanh toán.
+            <p className="text-xs sm:text-[13px] text-emerald-100/90 leading-snug">
+              Thu hoạch sáng sớm theo lô FEFO · Giao cố định hằng tuần · Tạm hoãn linh hoạt trước 12h.
             </p>
-
-            {/* 3 điểm cam kết nhanh */}
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1 text-[12px] text-emerald-100">
-              <span className="inline-flex items-center gap-1.5">
-                <Sprout className="w-4 h-4 text-[#91f78e] shrink-0" />
-                Thu hoạch sáng sớm theo lô FEFO
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <PauseCircle className="w-4 h-4 text-[#91f78e] shrink-0" />
-                Tạm hoãn lịch linh hoạt trước 12h
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-[#91f78e] shrink-0" />
-                Đạt chuẩn VietGAP & Hữu cơ TCVN
-              </span>
-            </div>
           </div>
 
-          {/* Thẻ tiến trình 3 bước */}
-          <div className="lg:w-[340px] shrink-0 rounded-2xl bg-black/20 backdrop-blur-xs border border-white/15 p-4 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-200">
-                Quy trình đăng ký
-              </span>
-              <Link
-                to="/products"
-                className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-[#91f78e] hover:underline"
-              >
-                <ArrowLeft className="w-3 h-3" />
-                Cửa hàng lẻ
-              </Link>
-            </div>
-
-            <ol className="space-y-2 text-xs">
-              {[
-                { step: 1, title: "Chọn gói nông sản phù hợp" },
-                { step: 2, title: "Cài đặt lịch giao tuần & địa chỉ" },
-                { step: 3, title: "Thanh toán QR ApiPay & kích hoạt" },
-              ].map((item) => {
-                const isDone = currentStep > item.step;
-                const isCurrent = currentStep === item.step;
-                return (
-                  <li
-                    key={item.step}
-                    className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border transition-colors ${
-                      isCurrent
-                        ? "bg-white text-[#00450d] border-white font-bold shadow-xs"
+          {/* Cột phải: Thanh tiến trình 3 bước nằm ngang gọn gàng */}
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {[
+              { step: 1, title: "Chọn gói" },
+              { step: 2, title: "Lịch & địa chỉ" },
+              { step: 3, title: "Thanh toán QR" },
+            ].map((item, idx) => {
+              const isDone = currentStep > item.step;
+              const isCurrent = currentStep === item.step;
+              return (
+                <div key={item.step} className="flex items-center gap-2">
+                  <div
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs border transition-colors ${isCurrent
+                        ? "bg-white text-[#00450d] border-white font-extrabold shadow-2xs"
                         : isDone
-                        ? "bg-emerald-500/20 text-white border-emerald-300/30 font-semibold"
-                        : "bg-white/5 text-emerald-100/75 border-white/10"
-                    }`}
+                          ? "bg-emerald-500/25 text-white border-emerald-300/35 font-semibold"
+                          : "bg-white/10 text-emerald-100/80 border-white/15 font-medium"
+                      }`}
                   >
                     <span
-                      className={`w-5 h-5 rounded-full text-[11px] font-extrabold flex items-center justify-center shrink-0 ${
-                        isCurrent
+                      className={`w-4 h-4 rounded-full text-[10px] font-extrabold flex items-center justify-center shrink-0 ${isCurrent
                           ? "bg-[#00450d] text-white"
                           : isDone
-                          ? "bg-[#91f78e] text-[#00450d]"
-                          : "bg-white/15 text-white"
-                      }`}
+                            ? "bg-[#91f78e] text-[#00450d]"
+                            : "bg-white/20 text-white"
+                        }`}
                     >
                       {isDone ? "✓" : item.step}
                     </span>
-                    <span className="truncate">{item.title}</span>
-                  </li>
-                );
-              })}
-            </ol>
+                    <span className="whitespace-nowrap">{item.title}</span>
+                  </div>
+                  {idx < 2 && (
+                    <span className="hidden sm:inline text-emerald-200/50 text-xs">→</span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </header>
@@ -487,107 +547,19 @@ export default function SubscriptionRegisterPage() {
 
       {/* ================= NỘI DUNG CHÍNH ================= */}
       {!isAdminPreview && subscriptionId ? (
-        <section className="rounded-3xl border border-[#c0c9bb]/50 bg-white p-6 sm:p-8 shadow-xs">
-          <div className="grid gap-6 lg:grid-cols-12 items-center">
-            <div className="lg:col-span-7 space-y-4">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold">
-                Chờ xác nhận thanh toán ApiPay
-              </span>
-              <h2 className="text-2xl font-extrabold text-slate-950">
-                Đăng ký #{subscriptionId} đang chờ thanh toán
-              </h2>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Gói rau định kỳ chưa được kích hoạt cho đến khi hệ thống nhận được xác nhận thanh
-                toán từ cổng ApiPay. Bạn có thể quét mã QR bên cạnh hoặc mở trang thanh toán trực
-                tiếp.
-              </p>
-
-              {subscriptionStatus && (
-                <div className="inline-flex flex-wrap items-center gap-2 rounded-xl bg-[#f8faf8] border border-[#c0c9bb]/50 px-3.5 py-2 text-xs text-slate-700">
-                  <span>
-                    Trạng thái gói:{" "}
-                    <strong className="text-[#00450d]">{subscriptionStatus.status}</strong>
-                  </span>
-                  <span>•</span>
-                  <span>
-                    Thanh toán:{" "}
-                    <strong>{subscriptionStatus.payment_status ?? "Chưa khởi tạo"}</strong>
-                  </span>
-                </div>
-              )}
-
-              <div className="flex flex-wrap gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => startPayment(subscriptionId)}
-                  disabled={isSubmitting || isCancelling || !apiPayReady}
-                  className="min-h-11 rounded-xl bg-[#00450d] hover:bg-[#006e1c] px-5 py-2.5 text-sm font-bold text-white shadow-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer inline-flex items-center gap-2"
-                >
-                  <QrCode className="w-4 h-4" />
-                  <span>
-                    {isSubmitting
-                      ? "Đang xử lý..."
-                      : payment
-                      ? "Lấy lại liên kết thanh toán"
-                      : "Tiếp tục thanh toán"}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setErrorMessage("");
-                    setStatusRefresh((current) => current + 1);
-                  }}
-                  disabled={isSubmitting || isCancelling}
-                  className="min-h-11 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 px-4 py-2.5 text-sm font-bold text-slate-800 transition-colors disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer inline-flex items-center gap-2"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  <span>Kiểm tra trạng thái thanh toán</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCancelSubscription}
-                  disabled={isSubmitting || isCancelling}
-                  className="min-h-11 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 px-4 py-2.5 text-sm font-bold text-red-700 transition-colors disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer inline-flex items-center gap-2"
-                >
-                  <XCircle className="w-4 h-4" />
-                  <span>{isCancelling ? "Đang hủy..." : "Hủy đăng ký"}</span>
-                </button>
-              </div>
-            </div>
-
-            {paymentUrl && (
-              <div className="lg:col-span-5 rounded-2xl bg-gradient-to-b from-emerald-50 to-[#f8faf8] border border-emerald-200/80 p-5 text-center space-y-3">
-                <p className="text-sm font-extrabold text-[#00450d]">
-                  Quét mã QR ApiPay để kích hoạt
-                </p>
-                {payment.qr_url && (
-                  <div className="mx-auto w-52 h-52 rounded-2xl bg-white p-3 border border-emerald-200/70 shadow-xs flex items-center justify-center">
-                    <img
-                      src={payment.qr_url}
-                      alt="Mã QR thanh toán ApiPay"
-                      className="h-full w-full object-contain"
-                    />
-                  </div>
-                )}
-                <a
-                  href={paymentUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#00450d] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#006e1c] transition-colors"
-                >
-                  <span>Mở trang thanh toán ApiPay</span>
-                  <ExternalLink className="w-4 h-4" />
-                </a>
-                {payment.expires_at && (
-                  <p className="text-xs text-slate-500">
-                    Liên kết hết hạn: <strong>{payment.expires_at}</strong>
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
+        <SubscriptionPendingPayment
+          subscriptionId={subscriptionId}
+          payment={payment}
+          subscriptionStatus={subscriptionStatus}
+          summary={pendingSummary}
+          apiPayReady={apiPayReady}
+          isSubmitting={isSubmitting}
+          isCancelling={isCancelling}
+          checkingStatus={checkingStatus}
+          onRetryPayment={() => startPayment(subscriptionId)}
+          onCheckStatus={() => verifySubscriptionPaymentStatus(false)}
+          onCancel={handleCancelSubscription}
+        />
       ) : packages.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-600">
           Hiện chưa có gói rau định kỳ đang mở bán.

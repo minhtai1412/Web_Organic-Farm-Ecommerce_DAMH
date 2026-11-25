@@ -20,7 +20,11 @@ Schedule::command('inventory:sync-batch-expiry')
     ->hourly()
     ->withoutOverlapping();
 
+// Schedule::command('subscriptions:generate-orders')
+//     ->hourlyAt(0)
+//     ->between('06:00', '10:00')
+//     ->withoutOverlapping();
+
 Schedule::command('subscriptions:generate-orders')
-    ->hourlyAt(0)
-    ->between('06:00', '10:00')
+    ->everyMinute()
     ->withoutOverlapping();

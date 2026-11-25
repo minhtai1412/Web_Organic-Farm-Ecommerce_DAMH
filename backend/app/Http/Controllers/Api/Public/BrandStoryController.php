@@ -13,6 +13,7 @@ use App\Models\KetQuaKiemDinh;
 use App\Models\NongTrai;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Storage;
 
 class BrandStoryController extends Controller
 {
@@ -92,48 +93,44 @@ class BrandStoryController extends Controller
             'description' => $farm->Triet_ly_canh_tac,
         ])->values()->all();
 
-// 1. Trong hàm show(): Bỏ đoạn where lọc cứng 4 từ khóa chứng nhận, chỉ giữ điều kiện còn hạn
-        $certificateRecords = ChungNhan::query()
-            ->select([
-                'Ma_chung_nhan',
-                'Ma_lo_hang',
-                'Ma_san_pham',
-                'Ten_chung_nhan',
-                'To_chuc_cap',
-                'Ngay_cap',
-                'Ngay_het_han',
-                'Duong_dan_tep',
-            ])
-            ->where(function ($query): void {
-                $query->whereNull('Ngay_het_han')
-                    ->orWhereDate('Ngay_het_han', '>=', now('Asia/Ho_Chi_Minh')->toDateString());
-            })
-            ->where(function ($query) use ($farmIds): void {
-                $query->whereHas('sanPham', fn ($productQuery) => $productQuery
-                    ->whereIn('Ma_nong_trai', $farmIds))
-                    ->orWhereHas('loHang.loCanhTac.muaVu', fn ($seasonQuery) => $seasonQuery
-                        ->whereIn('Ma_nong_trai', $farmIds));
-            })
-            ->with([
-                'sanPham:Ma_san_pham,Ma_nong_trai,Ten_san_pham',
-                'loHang:Ma_lo_hang,Ma_lo_canh_tac',
-                'loHang.loCanhTac:Ma_lo_canh_tac,Ma_mua_vu,Ma_san_pham',
-                'loHang.loCanhTac.muaVu:Ma_mua_vu,Ma_nong_trai',
-                'loHang.loCanhTac.sanPham:Ma_san_pham,Ma_nong_trai,Ten_san_pham',
-            ])
-            ->orderBy('Ma_chung_nhan')
-            ->get();
-        $certificateRecords = $certificateRecords
-            ->reject(fn (ChungNhan $certificate): bool => str_contains(
-                mb_strtolower((string) $certificate->Ten_chung_nhan),
-                'globalgap'
-            ))
-            ->values();
-        // 2. Chuẩn hóa nhãn $standard linh hoạt cho mọi loại chứng nhận
+        $certificateRecords = collect();
+        if ($farmIds->isNotEmpty()) {
+            $certificateRecords = ChungNhan::query()
+                ->select([
+                    'Ma_chung_nhan',
+                    'Ma_lo_hang',
+                    'Ma_san_pham',
+                    'Ten_chung_nhan',
+                    'To_chuc_cap',
+                    'Ngay_cap',
+                    'Ngay_het_han',
+                    'Duong_dan_tep',
+                ])
+                ->where(function ($query): void {
+                    $query->whereNull('Ngay_het_han')
+                        ->orWhereDate('Ngay_het_han', '>=', now('Asia/Ho_Chi_Minh')->toDateString());
+                })
+                ->where(function ($query) use ($farmIds): void {
+                    $query->whereHas('sanPham', fn ($productQuery) => $productQuery
+                        ->whereIn('Ma_nong_trai', $farmIds))
+                        ->orWhereHas('loHang.loCanhTac.muaVu', fn ($seasonQuery) => $seasonQuery
+                            ->whereIn('Ma_nong_trai', $farmIds));
+                })
+                ->with([
+                    'sanPham:Ma_san_pham,Ma_nong_trai,Ten_san_pham',
+                    'loHang:Ma_lo_hang,Ma_lo_canh_tac',
+                    'loHang.loCanhTac:Ma_lo_canh_tac,Ma_mua_vu,Ma_san_pham',
+                    'loHang.loCanhTac.muaVu:Ma_mua_vu,Ma_nong_trai',
+                    'loHang.loCanhTac.sanPham:Ma_san_pham,Ma_nong_trai,Ten_san_pham',
+                ])
+                ->orderBy('Ma_chung_nhan')
+                ->get();
+        }
+
         $certificationDetails = $certificateRecords->map(function (ChungNhan $certificate): array {
             $name = (string) $certificate->Ten_chung_nhan;
             $lowerName = mb_strtolower($name);
-        
+
             $standard = match (true) {
                 str_contains($lowerName, 'vietgap') => 'VietGAP',
                 str_contains($lowerName, 'globalgap') => 'GlobalGAP',
@@ -142,12 +139,12 @@ class BrandStoryController extends Controller
                 str_contains($lowerName, '11041') => 'Hữu cơ TCVN 11041',
                 default => $name,
             };
-        
+
             $product = $certificate->sanPham ?? $certificate->loHang?->loCanhTac?->sanPham;
             $farmId = $certificate->sanPham?->Ma_nong_trai
                 ?? $certificate->loHang?->loCanhTac?->muaVu?->Ma_nong_trai
                 ?? $product?->Ma_nong_trai;
-        
+
             return [
                 'id' => (int) $certificate->Ma_chung_nhan,
                 'farm_id' => $farmId === null ? null : (int) $farmId,
@@ -174,7 +171,6 @@ class BrandStoryController extends Controller
                 'cultivation_process' => $cultivationProcess,
                 'certifications' => $certificationDetails
                     ->pluck('standard')
-                    ->reject(fn ($standard) => $standard === 'GlobalGAP')
                     ->unique()
                     ->values()
                     ->all(),
@@ -193,17 +189,26 @@ class BrandStoryController extends Controller
         if (! is_string($path) || trim($path) === '') {
             return null;
         }
-    
+
         if (preg_match('/^https?:\/\//i', $path)) {
             return $path;
         }
-    
+
         $normalizedPath = ltrim($path, '/');
-    
+
         if (str_starts_with($normalizedPath, 'uploads/')) {
             return url('/' . $normalizedPath);
         }
-    
-        return Storage::disk('r2')->url($normalizedPath);
+
+        $r2BaseUrl = rtrim((string) config('filesystems.disks.r2.url', ''), '/');
+        if ($r2BaseUrl !== '') {
+            return $r2BaseUrl . '/' . $normalizedPath;
+        }
+
+        try {
+            return Storage::disk('r2')->url($normalizedPath);
+        } catch (\Throwable) {
+            return url('/' . $normalizedPath);
+        }
     }
 }

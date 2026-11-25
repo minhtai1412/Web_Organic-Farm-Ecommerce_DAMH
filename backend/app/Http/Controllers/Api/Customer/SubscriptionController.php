@@ -51,7 +51,7 @@ class SubscriptionController extends Controller
             $registrations,
             'Lấy danh sách gói định kỳ thành công.',
             $registrations->getCollection()
-                ->map(fn (DangKyGoi $registration) => $this->formatRegistration($registration))
+                ->map(fn(DangKyGoi $registration) => $this->formatRegistration($registration))
                 ->all()
         );
     }
@@ -126,7 +126,7 @@ class SubscriptionController extends Controller
                 'price' => (float) $package->Gia_goi,
                 'duration_months' => (int) $package->Ky_han_thang,
                 'weight_per_delivery' => (float) $package->Khoi_luong_moi_lan,
-                'items' => $package->chiTiets->map(fn ($item) => [
+                'items' => $package->chiTiets->map(fn($item) => [
                     'name' => $item->sanPham?->Ten_san_pham,
                     'quantity' => (float) $item->So_luong,
                 ])->all(),
@@ -137,7 +137,7 @@ class SubscriptionController extends Controller
                 $address->Tinh_thanh,
             ])) : null,
             'delivery_days' => $registration->lichGiao
-                ->map(fn (LichGiaoDinhKy $day) => [
+                ->map(fn(LichGiaoDinhKy $day) => [
                     'weekday' => (int) $day->Thu_trong_tuan,
                     'delivery_window' => $day->Khung_gio_giao,
                     'status' => $day->Trang_thai,
@@ -145,12 +145,12 @@ class SubscriptionController extends Controller
                 ->all(),
             'deliveries' => $registration->donHangs
                 ->sortByDesc('Ngay_dat')
-                ->map(fn ($order) => [
+                ->map(fn($order) => [
                     'order_id' => (int) $order->Ma_don_hang,
                     'status' => $order->Trang_thai,
                     'ordered_at' => $order->Ngay_dat,
                     'total' => (float) $order->Tong_tien,
-                    'items' => $order->chiTiets->map(fn ($item) => [
+                    'items' => $order->chiTiets->map(fn($item) => [
                         'name' => $item->sanPham?->Ten_san_pham,
                         'quantity' => (float) $item->So_luong,
                     ])->all(),
@@ -166,8 +166,7 @@ class SubscriptionController extends Controller
     public function store(
         StoreSubscriptionRequest $request,
         SubscriptionGeneratorService $subscriptions
-    ): JsonResponse
-    {
+    ): JsonResponse {
         $userId = (int) $request->user()->getAuthIdentifier();
         try {
             $registration = $subscriptions->registerSubscription($userId, $request->validated());
@@ -293,7 +292,7 @@ class SubscriptionController extends Controller
             return ThanhToan::query()->create([
                 'Ma_dang_ky_goi' => $lockedRegistration->Ma_dang_ky,
                 'Phuong_thuc' => 'ApiPay',
-                'Noi_dung_thanh_toan' => 'DK'.$lockedRegistration->Ma_dang_ky.'X'.Str::upper(Str::random(8)),
+                'Noi_dung_thanh_toan' => 'DK' . $lockedRegistration->Ma_dang_ky . 'X' . Str::upper(Str::random(8)),
                 'So_tien' => (int) $amount,
                 'Trang_thai' => 'Khoi_tao',
             ]);
@@ -305,7 +304,7 @@ class SubscriptionController extends Controller
                 (int) $payment->So_tien,
                 $payment->Noi_dung_thanh_toan
             );
-        } catch (ConnectionException|RuntimeException $exception) {
+        } catch (ConnectionException | RuntimeException $exception) {
             Log::warning('ApiPay subscription payment request could not be confirmed; keeping it pending for reconciliation.', [
                 'payment_id' => $payment->Ma_thanh_toan,
                 'exception' => $exception::class,
@@ -323,19 +322,73 @@ class SubscriptionController extends Controller
     }
 
     /**
-     * Chỉ trả trạng thái đăng ký cho đúng chủ sở hữu.
+     * Chỉ trả trạng thái đăng ký cho đúng chủ sở hữu; tự động đối soát với ApiPay nếu vẫn đang chờ.
      */
-    public function show(Request $request, int $subscriptionId): JsonResponse
-    {
+    public function show(
+        Request $request,
+        int $subscriptionId,
+        ApiPayPaymentService $apiPay
+    ): JsonResponse {
+        $userId = (int) $request->user()->getAuthIdentifier();
         $registration = DangKyGoi::query()
             ->where('Ma_dang_ky', $subscriptionId)
-            ->where('Ma_nguoi_dung', $request->user()->getAuthIdentifier())
+            ->where('Ma_nguoi_dung', $userId)
             ->firstOrFail();
+
         $payment = ThanhToan::query()
             ->where('Ma_dang_ky_goi', $registration->Ma_dang_ky)
             ->where('Phuong_thuc', 'ApiPay')
             ->latest('Ma_thanh_toan')
             ->first();
+
+        if (
+            $registration->Trang_thai === 'Cho_thanh_toan'
+            && $payment
+            && $payment->Trang_thai === 'Khoi_tao'
+            && ! empty($payment->Ma_yeu_cau_apipay)
+        ) {
+            try {
+                $remote = $apiPay->getPaymentRequest($payment->Ma_yeu_cau_apipay);
+                $remoteStatus = strtoupper((string) ($remote['status'] ?? ''));
+
+                if (in_array($remoteStatus, ['PAID', 'COMPLETED', 'SUCCESS'], true)) {
+                    DB::transaction(function () use ($registration, $payment, $remote): void {
+                        $lockedReg = DangKyGoi::query()
+                            ->whereKey($registration->Ma_dang_ky)
+                            ->lockForUpdate()
+                            ->first();
+                        $lockedPay = ThanhToan::query()
+                            ->whereKey($payment->Ma_thanh_toan)
+                            ->lockForUpdate()
+                            ->first();
+
+                        if ($lockedPay && $lockedPay->Trang_thai === 'Khoi_tao') {
+                            $txId = $remote['transactionId'] ?? $remote['transaction_id'] ?? null;
+                            $lockedPay->update([
+                                'Ma_giao_dich_apipay' => is_string($txId) && $txId !== '' ? $txId : $lockedPay->Ma_giao_dich_apipay,
+                                'Trang_thai' => 'Thanh_cong',
+                                'Thoi_gian_thanh_toan' => now(),
+                            ]);
+                        }
+
+                        if ($lockedReg && $lockedReg->Trang_thai === 'Cho_thanh_toan') {
+                            $lockedReg->update(['Trang_thai' => 'Dang_hoat_dong']);
+                        }
+                    });
+
+                    $registration->refresh();
+                    $payment->refresh();
+                } elseif (in_array($remoteStatus, ['EXPIRED', 'CANCELLED'], true)) {
+                    $payment->update(['Trang_thai' => 'That_bai']);
+                    $payment->refresh();
+                }
+            } catch (\Throwable $e) {
+                Log::warning('ApiPay subscription status reconciliation skipped.', [
+                    'subscription_id' => $registration->Ma_dang_ky,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
 
         return $this->successResponse(
             message: 'Lấy trạng thái đăng ký gói thành công.',
@@ -357,6 +410,7 @@ class SubscriptionController extends Controller
                 : 'Lấy liên kết thanh toán ApiPay hiện có thành công.',
             data: [
                 'payment_request_id' => $payment->Ma_yeu_cau_apipay ?? $remote['public_id'] ?? null,
+                'amount' => (int) $payment->So_tien,
                 'pay_url' => $remote['pay_url'] ?? $remote['payUrl'] ?? null,
                 'qr_url' => $remote['qr_url'] ?? $remote['qrUrl'] ?? null,
                 'status' => $remote['status'] ?? null,

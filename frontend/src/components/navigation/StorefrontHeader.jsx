@@ -157,9 +157,6 @@ export default function StorefrontHeader() {
                 }`}
               >
                 <span>Gói Định Kỳ</span>
-                <span className="px-1.5 py-0.5 rounded-full text-[11px] font-bold bg-[#86efac]/35 text-[#00450d] border border-[#86efac]/60 leading-none">
-                  -20%
-                </span>
                 {isCurrentActive("/subscriptions") && (
                   <span className="absolute -bottom-2 left-0 right-0 h-[2.5px] bg-[#00450d] rounded-full" />
                 )}

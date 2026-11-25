@@ -26,8 +26,6 @@ class CheckoutController extends Controller
 
     public function options(ApiPayPaymentService $apiPay): JsonResponse
     {
-        $configuration = $apiPay->configurationStatus();
-
         return $this->successResponse(
             message: 'Lấy cấu hình thanh toán thành công.',
             data: [
@@ -91,8 +89,9 @@ class CheckoutController extends Controller
             }
 
             $remotePayment = $apiPay->getPaymentRequest($existingPayment->Ma_yeu_cau_apipay);
+            $remoteStatus = strtoupper((string) ($remotePayment['status'] ?? ''));
 
-            if (($remotePayment['status'] ?? null) === 'ACTIVE' && ! empty($remotePayment['payUrl'])) {
+            if ($remoteStatus === 'ACTIVE' && ! empty($remotePayment['payUrl'])) {
                 return $this->successResponse(
                     message: 'Lấy liên kết thanh toán ApiPay hiện có thành công.',
                     data: [
@@ -106,7 +105,32 @@ class CheckoutController extends Controller
                 );
             }
 
-            if (in_array($remotePayment['status'] ?? null, ['EXPIRED', 'CANCELLED'], true)) {
+            if (in_array($remoteStatus, ['PAID', 'COMPLETED', 'SUCCESS'], true)) {
+                DB::transaction(function () use ($order, $existingPayment, $remotePayment): void {
+                    $existingPayment->update([
+                        'Ma_giao_dich_apipay' => $remotePayment['transactionId'] ?? $existingPayment->Ma_giao_dich_apipay,
+                        'Trang_thai' => 'Thanh_cong',
+                        'Thoi_gian_thanh_toan' => now(),
+                    ]);
+
+                    DonHang::query()
+                        ->where('Ma_don_hang', $order->Ma_don_hang)
+                        ->where('Trang_thai', 'Cho_thanh_toan')
+                        ->update(['Trang_thai' => 'Cho_xac_nhan']);
+                });
+
+                return $this->successResponse(
+                    message: 'Đơn hàng đã được thanh toán thành công trước đó.',
+                    data: [
+                        'payment_request_id' => $existingPayment->Ma_yeu_cau_apipay,
+                        'already_paid' => true,
+                        'status' => $remoteStatus,
+                    ],
+                    status: 200
+                );
+            }
+
+            if (in_array($remoteStatus, ['EXPIRED', 'CANCELLED'], true)) {
                 $existingPayment->update(['Trang_thai' => 'That_bai']);
             } else {
                 throw ValidationException::withMessages([

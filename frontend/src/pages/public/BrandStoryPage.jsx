@@ -1,13 +1,22 @@
+/* ==========================================================================
+ * TRANG CÂU CHUYỆN THƯƠNG HIỆU & CHỨNG NHẬN (BRAND STORY & CERTIFICATIONS)
+ * Bố cục 4 phân khu rõ ràng:
+ * 1. Giới thiệu thương hiệu & Thống kê minh bạch
+ * 2. Hệ thống nông trại & Hồ sơ năng lực + Thư viện ảnh thực tế
+ * 3. Quy trình canh tác sạch (Từ đất đến bàn ăn)
+ * 4. Hồ sơ chứng nhận chất lượng & Kết quả kiểm định đất / nước / nông sản
+ * ========================================================================== */
+
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  ArrowDown,
   ArrowRight,
   Award,
   BadgeCheck,
+  Building2,
   CalendarDays,
-  Check,
-  ExternalLink,
+  CheckCircle2,
+  Droplets,
   FileBadge,
   FileText,
   FlaskConical,
@@ -15,8 +24,8 @@ import {
   MapPin,
   RefreshCw,
   ShieldCheck,
+  Sparkles,
   Sprout,
-  Droplets,
 } from "lucide-react";
 import EmptyState from "../../components/common/EmptyState";
 import MediaViewer from "../../components/common/MediaViewer";
@@ -28,7 +37,7 @@ function formatDate(value) {
   const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
   if (Number.isNaN(date.getTime())) return "Chưa cập nhật";
 
-  return new Intl.DateTimeFormat("vi-VN", { dateStyle: "long" }).format(date);
+  return new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium" }).format(date);
 }
 
 function getProcessPrinciples(description) {
@@ -50,6 +59,27 @@ function getProcessPrinciples(description) {
   return principles.length > 1 ? principles : [text];
 }
 
+const SAMPLE_TYPE_META = {
+  Dat: {
+    label: "Mẫu đất canh tác",
+    icon: Leaf,
+    badgeClass: "bg-amber-50 text-amber-800 border-amber-200/80",
+    iconClass: "bg-amber-100/70 text-amber-800",
+  },
+  Nuoc: {
+    label: "Mẫu nguồn nước tưới",
+    icon: Droplets,
+    badgeClass: "bg-sky-50 text-sky-800 border-sky-200/80",
+    iconClass: "bg-sky-100/70 text-sky-700",
+  },
+  Nong_san: {
+    label: "Mẫu nông sản thu hoạch",
+    icon: Sprout,
+    badgeClass: "bg-emerald-50 text-[#006e1c] border-emerald-200/80",
+    iconClass: "bg-[#eaf5e7] text-[#08712b]",
+  },
+};
+
 function FarmPhoto({ image, farmName, className = "" }) {
   const [hasError, setHasError] = useState(false);
 
@@ -60,9 +90,9 @@ function FarmPhoto({ image, farmName, className = "" }) {
         role="img"
         aria-label={`Hình ảnh ${farmName} chưa khả dụng`}
       >
-        <div className="text-center">
-          <Sprout className="mx-auto h-10 w-10" aria-hidden="true" />
-          <p className="mt-2 text-sm font-semibold">{farmName}</p>
+        <div className="text-center px-4">
+          <Sprout className="mx-auto h-9 w-9" aria-hidden="true" />
+          <p className="mt-2 text-xs font-bold">{farmName}</p>
         </div>
       </div>
     );
@@ -79,38 +109,65 @@ function FarmPhoto({ image, farmName, className = "" }) {
   );
 }
 
+function SectionHeading({ stepNumber, eyebrow, icon: Icon, title, subtitle, rightSlot }) {
+  return (
+    <div className="flex flex-col gap-4 border-b border-[#dfe8db] pb-6 sm:flex-row sm:items-end sm:justify-between">
+      <div className="max-w-2xl">
+        <div className="flex items-center gap-2.5">
+          <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-lg bg-[#00450d] px-1.5 text-[11px] font-black text-[#91f78e]">
+            {stepNumber}
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-[0.14em] text-[#006e1c]">
+            {Icon && <Icon className="h-3.5 w-3.5" aria-hidden="true" />}
+            {eyebrow}
+          </span>
+        </div>
+        <h2
+          className="mt-2.5 text-2xl font-black tracking-tight text-[#14391d] sm:text-3xl"
+          style={{ fontFamily: "var(--font-headline)" }}
+        >
+          {title}
+        </h2>
+        {subtitle && (
+          <p className="mt-2 text-sm leading-6 text-[#5b6957] sm:text-[15px]">
+            {subtitle}
+          </p>
+        )}
+      </div>
+      {rightSlot && <div className="shrink-0">{rightSlot}</div>}
+    </div>
+  );
+}
+
 function BrandStorySkeleton() {
   return (
     <div
       role="status"
       aria-label="Đang tải câu chuyện thương hiệu"
-      className="mx-auto max-w-7xl animate-pulse space-y-8 px-4 py-8 sm:px-6 sm:py-12"
+      className="mx-auto max-w-7xl animate-pulse space-y-8 px-4 py-8 sm:px-6 sm:py-10"
     >
-      <div className="h-5 w-36 rounded-full bg-[#e6e9e7]" />
-      <div className="grid gap-8 lg:grid-cols-2">
-        <div className="space-y-5 py-5">
+      <div className="h-4 w-44 rounded-full bg-[#e6e9e7]" />
+      <div className="grid gap-8 rounded-3xl bg-white p-6 sm:p-8 lg:grid-cols-2">
+        <div className="space-y-4">
+          <div className="h-7 w-40 rounded-full bg-[#e6e9e7]" />
           <div className="h-10 w-4/5 rounded-xl bg-[#e6e9e7]" />
-          <div className="h-5 w-full rounded bg-[#eceeec]" />
-          <div className="h-5 w-3/4 rounded bg-[#eceeec]" />
-          <div className="h-28 rounded-3xl bg-[#e6e9e7]" />
+          <div className="h-20 w-full rounded-2xl bg-[#eceeec]" />
+          <div className="grid grid-cols-3 gap-3 pt-2">
+            <div className="h-16 rounded-2xl bg-[#e6e9e7]" />
+            <div className="h-16 rounded-2xl bg-[#e6e9e7]" />
+            <div className="h-16 rounded-2xl bg-[#e6e9e7]" />
+          </div>
         </div>
-        <div className="min-h-72 rounded-[2rem] bg-[#e6e9e7]" />
+        <div className="min-h-72 rounded-3xl bg-[#e6e9e7]" />
       </div>
       <div className="grid gap-5 md:grid-cols-3">
-        <div className="h-40 rounded-3xl bg-[#e6e9e7]" />
-        <div className="h-40 rounded-3xl bg-[#e6e9e7]" />
-        <div className="h-40 rounded-3xl bg-[#e6e9e7]" />
+        <div className="h-44 rounded-3xl bg-[#e6e9e7]" />
+        <div className="h-44 rounded-3xl bg-[#e6e9e7]" />
+        <div className="h-44 rounded-3xl bg-[#e6e9e7]" />
       </div>
     </div>
   );
 }
-
-// Thêm object ánh xạ phía trên component BrandStoryPage (gần hàm formatDate)
-const SAMPLE_TYPE_META = {
-  Dat: { label: "Mẫu đất", icon: Leaf },
-  Nuoc: { label: "Mẫu nước", icon: Droplets },
-  Nong_san: { label: "Mẫu nông sản", icon: Sprout },
-};
 
 export default function BrandStoryPage() {
   const [requestResult, setRequestResult] = useState(null);
@@ -215,105 +272,115 @@ export default function BrandStoryPage() {
   );
 
   return (
-    <div className="overflow-hidden bg-[#f6f8f6] pb-14 sm:pb-20">
-      <section className="relative isolate overflow-hidden bg-gradient-to-br from-[#f4f8ef] via-white to-[#eaf4e5]">
-        <div className="pointer-events-none absolute -right-24 -top-32 -z-10 h-96 w-96 rounded-full bg-lime-200/30 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-40 -left-20 -z-10 h-96 w-96 rounded-full bg-emerald-100/50 blur-3xl" />
-
-        <div className="mx-auto max-w-7xl px-4 pb-10 pt-8 sm:px-6 sm:pb-16 sm:pt-12 lg:pb-20">
+    <div className="bg-[#f6f8f6] pb-16">
+      {/* ==================================================================
+          PHẦN 1: HERO - CÂU CHUYỆN THƯƠNG HIỆU & CHỈ SỐ MINH BẠCH
+         ================================================================== */}
+      <section className="border-b border-[#dfe8db] bg-gradient-to-br from-[#f2f7ee] via-white to-[#eaf4e5]">
+        <div className="mx-auto max-w-7xl px-4 pb-10 pt-6 sm:px-6 sm:pb-14 sm:pt-8">
+          {/* Breadcrumb */}
           <nav
             aria-label="Điều hướng đường dẫn"
-            className="mb-8 text-xs font-medium text-[#687265] sm:mb-10 sm:text-sm"
+            className="mb-6 flex items-center gap-2 text-xs font-medium text-[#687265]"
           >
             <Link to="/" className="transition-colors hover:text-[#006e1c]">
               Trang chủ
             </Link>
-            <span className="mx-2 text-[#a0a99b]">/</span>
-            <span aria-current="page" className="text-[#00450d]">
-              Câu chuyện thương hiệu
+            <span className="text-[#a0a99b]">/</span>
+            <span aria-current="page" className="font-bold text-[#00450d]">
+              Câu chuyện &amp; Chứng nhận
             </span>
           </nav>
 
-          <div className="grid items-center gap-9 lg:grid-cols-[0.94fr_1.06fr] lg:gap-14">
-            <div className="order-2 lg:order-1">
-              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200/80 bg-white/80 px-3.5 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#006e1c] shadow-sm sm:text-sm">
-                <Leaf className="h-4 w-4" aria-hidden="true" />
-                Câu chuyện thương hiệu
-              </span>
+          <div className="grid items-center gap-8 lg:grid-cols-12 lg:gap-10">
+            {/* Cột trái: Nội dung thương hiệu */}
+            <div className="lg:col-span-6 space-y-5">
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white px-3.5 py-1.5 text-xs font-extrabold uppercase tracking-[0.12em] text-[#006e1c] shadow-2xs">
+                <Leaf className="h-3.5 w-3.5" aria-hidden="true" />
+                Hành trình nông nghiệp hữu cơ minh bạch
+              </div>
+
               <h1
-                className="mt-5 max-w-2xl text-4xl font-black leading-[1.08] tracking-tight text-[#103c1c] sm:mt-6 sm:text-5xl lg:text-6xl"
+                className="text-3xl font-black leading-[1.12] tracking-tight text-[#103c1c] sm:text-4xl lg:text-[42px]"
                 style={{ fontFamily: "var(--font-headline)" }}
               >
-                {primaryFarm?.name || "Câu chuyện thương hiệu"}
+                {primaryFarm?.name || "Câu chuyện thương hiệu XanhFarm"}
               </h1>
-              <p className="mt-5 max-w-xl text-base leading-7 text-[#526050] sm:mt-6 sm:text-lg sm:leading-8">
+
+              <p className="text-sm leading-7 text-[#4c594a] sm:text-base">
                 {primaryFarm?.brand_story ||
-                  "Câu chuyện thương hiệu đang được cập nhật."}
+                  "Chúng tôi xây dựng chuỗi cung ứng nông sản sạch khép kín từ vùng trồng đạt chuẩn tới bàn ăn mỗi gia đình, minh bạch từng mùa vụ và hồ sơ kiểm định."}
               </p>
 
-              {primaryFarm && (
-                <div className="mt-7 rounded-3xl border border-[#dce7d7] bg-white/85 p-5 shadow-[0_16px_50px_-38px_rgba(16,60,28,0.5)] backdrop-blur sm:mt-9 sm:p-6">
-                  <div className="flex items-start gap-3">
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#eaf5e7] text-[#08712b]">
-                      <MapPin className="h-5 w-5" aria-hidden="true" />
-                    </span>
-                    <div className="min-w-0">
-                      <h2 className="text-lg font-extrabold leading-snug text-[#163e20] sm:text-xl">
-                        {primaryFarm.name}
-                      </h2>
-                      {primaryFarm.address && (
-                        <p className="mt-1.5 text-sm leading-6 text-[#667163]">
-                          {primaryFarm.address}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  {primaryFarm.capacity_profile && (
-                    <div className="mt-4 flex items-start gap-2.5 rounded-2xl bg-[#f5f8f2] p-3.5 text-sm leading-6 text-[#3d563d]">
-                      <FileBadge className="mt-0.5 h-4 w-4 shrink-0 text-[#18823a]" aria-hidden="true" />
-                      <span>{primaryFarm.capacity_profile}</span>
-                    </div>
-                  )}
+              {/* Thanh 3 chỉ số tổng quan rõ ràng */}
+              <div className="grid grid-cols-3 gap-3 pt-1">
+                <div className="rounded-2xl border border-[#dce7d7] bg-white p-3.5 shadow-2xs">
+                  <p className="text-xl font-black text-[#00450d] sm:text-2xl">
+                    {farms.length}
+                  </p>
+                  <p className="mt-0.5 text-xs font-semibold text-[#5b6957]">
+                    Cơ sở nông trại
+                  </p>
                 </div>
-              )}
+                <div className="rounded-2xl border border-[#dce7d7] bg-white p-3.5 shadow-2xs">
+                  <p className="text-xl font-black text-[#00450d] sm:text-2xl">
+                    {processPrinciples.length || processes.length}
+                  </p>
+                  <p className="mt-0.5 text-xs font-semibold text-[#5b6957]">
+                    Nguyên tắc sạch
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-[#dce7d7] bg-white p-3.5 shadow-2xs">
+                  <p className="text-xl font-black text-[#00450d] sm:text-2xl">
+                    {certificates.length + qualityTests.length}
+                  </p>
+                  <p className="mt-0.5 text-xs font-semibold text-[#5b6957]">
+                    Hồ sơ kiểm định
+                  </p>
+                </div>
+              </div>
 
-              <a
-                href="#quy-trinh"
-                className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-full px-1 text-sm font-bold text-[#006e1c] transition-colors hover:text-[#00450d] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#18823a] focus-visible:ring-offset-2"
-              >
-                Khám phá quy trình canh tác
-                <ArrowDown className="h-4 w-4" aria-hidden="true" />
-              </a>
-              {processPrinciples.length > 0 && (
-                <p className="mt-2 flex items-center gap-2 text-xs font-semibold text-[#657061]">
-                  <ShieldCheck className="h-4 w-4 text-[#18823a]" aria-hidden="true" />
-                  {processPrinciples.length} nguyên tắc canh tác sạch được nông trại chia sẻ
-                </p>
+              {/* Khối thông tin cơ sở chính */}
+              {primaryFarm?.address && (
+                <div className="flex items-start gap-3 rounded-2xl border border-[#dce7d7] bg-white/90 p-4">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#eaf5e7] text-[#08712b]">
+                    <MapPin className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold uppercase tracking-wider text-[#006e1c]">
+                      Vùng trồng chính
+                    </p>
+                    <p className="mt-0.5 text-sm font-semibold text-[#193e22]">
+                      {primaryFarm.address}
+                    </p>
+                  </div>
+                </div>
               )}
             </div>
 
-            <div className="order-1 lg:order-2">
-              <div className="relative mx-auto max-w-2xl">
+            {/* Cột phải: Bộ ảnh thực tế nông trại */}
+            <div className="lg:col-span-6">
+              <div className="relative">
                 {farmImages.length > 1 ? (
-                  <div className="grid grid-cols-[1.25fr_0.75fr] grid-rows-2 gap-3 sm:gap-4">
+                  <div className="grid grid-cols-[1.3fr_0.7fr] grid-rows-2 gap-3">
                     <FarmPhoto
                       image={farmImages[0]}
                       farmName={primaryFarm?.name || "XanhFarm"}
-                      className="row-span-2 h-[300px] w-full rounded-[1.75rem] object-cover shadow-[0_24px_70px_-35px_rgba(16,60,28,0.55)] sm:h-[440px] sm:rounded-[2rem]"
+                      className="row-span-2 h-[280px] w-full rounded-3xl object-cover shadow-md sm:h-[380px]"
                     />
                     {farmImages.slice(1, 3).map((image) => (
                       <FarmPhoto
                         key={image.id}
                         image={image}
                         farmName={primaryFarm?.name || "XanhFarm"}
-                        className="h-[143px] w-full rounded-2xl object-cover shadow-md sm:h-[212px] sm:rounded-[1.5rem]"
+                        className="h-[134px] w-full rounded-2xl object-cover shadow-xs sm:h-[184px]"
                       />
                     ))}
                     {farmImages.length < 3 && (
-                      <div className="flex min-h-32 flex-col items-center justify-center rounded-2xl bg-[#e7f2e2] p-4 text-center text-[#276139] sm:rounded-[1.5rem]">
-                        <Sprout className="h-8 w-8" aria-hidden="true" />
-                        <span className="mt-2 text-xs font-bold sm:text-sm">
-                          Gieo trồng bằng sự tận tâm
+                      <div className="flex flex-col items-center justify-center rounded-2xl border border-[#dce7d7] bg-[#eaf5e7] p-4 text-center text-[#00450d]">
+                        <Sprout className="h-7 w-7" aria-hidden="true" />
+                        <span className="mt-1.5 text-xs font-bold">
+                          Canh tác bền vững
                         </span>
                       </div>
                     )}
@@ -322,14 +389,13 @@ export default function BrandStoryPage() {
                   <FarmPhoto
                     image={farmImages[0]}
                     farmName={primaryFarm?.name || "XanhFarm"}
-                    className="h-[300px] w-full rounded-[1.75rem] object-cover shadow-[0_24px_70px_-35px_rgba(16,60,28,0.55)] sm:h-[440px] sm:rounded-[2rem]"
+                    className="h-[280px] w-full rounded-3xl object-cover shadow-md sm:h-[380px]"
                   />
                 )}
-                <div className="absolute -bottom-4 left-4 inline-flex items-center gap-2 rounded-2xl border border-white/80 bg-white/95 px-3.5 py-2.5 text-xs font-bold text-[#315638] shadow-lg sm:bottom-5 sm:left-5 sm:px-4 sm:text-sm">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#e9f5e7] text-[#08712b]">
-                    <Check className="h-4 w-4" aria-hidden="true" />
-                  </span>
-                  Minh bạch từ nông trại
+
+                <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-[#dce7d7] bg-white px-3.5 py-1.5 text-xs font-bold text-[#14391d] shadow-2xs sm:absolute sm:bottom-4 sm:left-4 sm:mt-0">
+                  <CheckCircle2 className="h-4 w-4 text-[#006e1c]" aria-hidden="true" />
+                  100% Truy xuất nguồn gốc từng luống rau
                 </div>
               </div>
             </div>
@@ -337,395 +403,530 @@ export default function BrandStoryPage() {
         </div>
       </section>
 
-      {qualityTests.length > 0 && (
-        <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-18">
-          <div className="max-w-2xl">
-            <span className="inline-flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.16em] text-[#18823a] sm:text-sm">
-              <FlaskConical className="h-4 w-4" aria-hidden="true" />
-              Kết quả kiểm định
-            </span>
-            <h2 className="mt-3 text-3xl font-black tracking-tight text-[#173c20] sm:text-4xl">
-              Đất &amp; nước được kiểm tra
-            </h2>
-            <p className="mt-3 text-sm leading-7 text-[#657061] sm:text-base">
-              Hồ sơ kiểm định do từng cơ sở nông trại ghi nhận.
-            </p>
-          </div>
+      {/* ==================================================================
+          THANH ĐIỀU HƯỚNG NHANH GIỮA CÁC PHÂN KHU (STICKY ANCHOR BAR)
+         ================================================================== */}
+      <div className="sticky top-20 z-20 border-b border-[#dfe8db] bg-white/95 backdrop-blur-md">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 overflow-x-auto px-4 py-2.5 sm:px-6">
+          <nav aria-label="Mục lục trang" className="flex items-center gap-1.5 sm:gap-2">
+            <a
+              href="#nong-trai"
+              className="whitespace-nowrap rounded-xl px-3.5 py-1.5 text-xs font-bold text-[#41493e] transition-colors hover:bg-[#edf6e9] hover:text-[#00450d]"
+            >
+              01. Hệ thống nông trại
+            </a>
+            <a
+              href="#quy-trinh"
+              className="whitespace-nowrap rounded-xl px-3.5 py-1.5 text-xs font-bold text-[#41493e] transition-colors hover:bg-[#edf6e9] hover:text-[#00450d]"
+            >
+              02. Quy trình canh tác
+            </a>
+            <a
+              href="#chung-nhan"
+              className="whitespace-nowrap rounded-xl px-3.5 py-1.5 text-xs font-bold text-[#41493e] transition-colors hover:bg-[#edf6e9] hover:text-[#00450d]"
+            >
+              03. Chứng nhận &amp; Kiểm định
+            </a>
+          </nav>
 
-          <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {qualityTests.map((test) => {
-              const sampleMeta = SAMPLE_TYPE_META[test.sample_type] || {
-                label: "Mẫu kiểm định",
-                icon: FlaskConical,
-              };
-              const SampleIcon = sampleMeta.icon;
-              const fileUrl = test.file_url || "";
+          <Link
+            to="/products"
+            className="hidden shrink-0 items-center gap-1.5 rounded-xl bg-[#00450d] px-3.5 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[#006e1c] sm:inline-flex"
+          >
+            <span>Xem nông sản</span>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+      </div>
 
-              return (
+      {/* ==================================================================
+          NỘI DUNG CHÍNH 3 PHÂN KHU
+         ================================================================== */}
+      <div className="mx-auto max-w-7xl space-y-14 px-4 pt-10 sm:space-y-16 sm:px-6 sm:pt-12">
+        {/* ----------------------------------------------------------------
+            MỤC 01: HỆ THỐNG NÔNG TRẠI & HỒ SƠ NĂNG LỰC
+           ---------------------------------------------------------------- */}
+        <section id="nong-trai" className="scroll-mt-36 space-y-6">
+          <SectionHeading
+            stepNumber="01"
+            eyebrow="Cam kết từ vùng trồng"
+            icon={Building2}
+            title="Hệ thống nông trại & Hồ sơ năng lực"
+            subtitle="Thông tin chi tiết về từng cơ sở sản xuất, quy mô canh tác và hình ảnh thực tế tại vườn."
+          />
+
+          {farms.length > 0 ? (
+            <div className="grid gap-5 md:grid-cols-2">
+              {farms.map((farm, idx) => (
                 <article
-                  key={test.id}
-                  className="rounded-3xl border border-[#dfe8db] bg-white p-5 shadow-[0_12px_42px_-34px_rgba(19,54,24,0.5)] sm:p-6"
+                  key={farm.id}
+                  className="flex flex-col justify-between rounded-3xl border border-[#dfe8db] bg-white p-6 shadow-2xs transition-shadow hover:shadow-md"
                 >
-                  <div className="flex items-start gap-3">
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#edf6e9] text-[#08712b]">
-                      <SampleIcon className="h-5 w-5" aria-hidden="true" />
-                    </span>
-                    <div className="min-w-0">
-                      <h3 className="font-extrabold text-[#173c20]">
-                        {sampleMeta.label}
-                      </h3>
-                      <p className="mt-1 text-xs text-[#778272]">{test.farm_name}</p>
+                  <div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3.5">
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#eaf5e7] text-[#08712b]">
+                          <Sprout className="h-5 w-5" aria-hidden="true" />
+                        </span>
+                        <div>
+                          <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#006e1c]">
+                            Cơ sở #{idx + 1}
+                          </span>
+                          <h3 className="text-lg font-extrabold text-[#14391d]">
+                            {farm.name}
+                          </h3>
+                        </div>
+                      </div>
                     </div>
+
+                    {farm.address && (
+                      <p className="mt-4 flex items-start gap-2 text-sm leading-6 text-[#5b6957]">
+                        <MapPin
+                          className="mt-1 h-4 w-4 shrink-0 text-[#18823a]"
+                          aria-hidden="true"
+                        />
+                        <span>{farm.address}</span>
+                      </p>
+                    )}
                   </div>
-                  <p className="mt-4 text-sm font-semibold leading-6 text-[#42513f]">
-                    {test.result}
-                  </p>
-                  {test.note && (
-                    <p className="mt-2 text-sm leading-6 text-[#697465]">{test.note}</p>
+
+                  {farm.capacity_profile && (
+                    <div className="mt-5 rounded-2xl border border-[#e7efe3] bg-[#f7faf5] p-4">
+                      <p className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-[#006e1c]">
+                        <FileBadge className="h-4 w-4" aria-hidden="true" />
+                        Hồ sơ năng lực sản xuất
+                      </p>
+                      <p className="mt-1.5 text-sm leading-6 text-[#42513f]">
+                        {farm.capacity_profile}
+                      </p>
+                    </div>
                   )}
-                  <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#edf1ea] pt-4">
-                    <span className="text-xs text-[#778272]">
-                      Kiểm định: {formatDate(test.inspected_at)}
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-2xl border border-dashed border-[#cbd9c5] bg-white p-6 text-center text-sm text-[#697465]">
+              Thông tin cơ sở nông trại đang được cập nhật.
+            </p>
+          )}
+
+          {/* Thư viện ảnh thực tế bổ sung */}
+          {galleryItems.length > 0 && (
+            <div className="pt-2">
+              <h3 className="mb-3 text-xs font-extrabold uppercase tracking-wider text-[#5b6957]">
+                Hình ảnh thực tế tại các cơ sở ({galleryItems.length})
+              </h3>
+              <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-4">
+                {galleryItems.map(({ farm, image }) => (
+                  <figure
+                    key={`${farm.id}-${image.id}`}
+                    className="overflow-hidden rounded-2xl border border-[#dfe8db] bg-white shadow-2xs"
+                  >
+                    <FarmPhoto
+                      image={image}
+                      farmName={farm.name}
+                      className="h-40 w-full object-cover transition-transform duration-300 hover:scale-105 sm:h-44"
+                    />
+                    {image.caption && (
+                      <figcaption className="px-3.5 py-2.5 text-xs leading-5 text-[#526050]">
+                        {image.caption}
+                      </figcaption>
+                    )}
+                  </figure>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* ----------------------------------------------------------------
+            MỤC 02: QUY TRÌNH CANH TÁC SẠCH
+           ---------------------------------------------------------------- */}
+        <section
+          id="quy-trinh"
+          className="scroll-mt-36 rounded-3xl border border-[#d7e5d1] bg-[#edf4e9] p-6 sm:p-8 lg:p-10"
+        >
+          <div className="grid gap-8 lg:grid-cols-12 lg:gap-10">
+            {/* Cột trái tóm tắt */}
+            <div className="lg:col-span-4 space-y-4">
+              <div className="flex items-center gap-2.5">
+                <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-lg bg-[#00450d] px-1.5 text-[11px] font-black text-[#91f78e]">
+                  02
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-[0.14em] text-[#006e1c]">
+                  <Leaf className="h-3.5 w-3.5" aria-hidden="true" />
+                  Từ đất đến bàn ăn
+                </span>
+              </div>
+
+              <h2
+                className="text-2xl font-black leading-tight tracking-tight text-[#14391d] sm:text-3xl"
+                style={{ fontFamily: "var(--font-headline)" }}
+              >
+                Quy trình canh tác sạch
+              </h2>
+
+              <p className="text-sm leading-6 text-[#4c594a]">
+                Mỗi mùa vụ đều tuân thủ nghiêm ngặt các nguyên tắc không hóa chất tổng hợp, ghi nhật ký điện tử theo từng lô thu hoạch.
+              </p>
+
+              <div className="rounded-2xl border border-[#cfe0c8] bg-white/80 p-4 space-y-2 text-xs text-[#3d563d]">
+                <p className="font-extrabold text-[#14391d] flex items-center gap-1.5">
+                  <Sparkles className="h-4 w-4 text-[#006e1c]" />
+                  Cam kết vận hành FEFO
+                </p>
+                <p className="leading-5">
+                  Nông sản thu hoạch sáng sớm được phân lô và xuất kho theo nguyên tắc hết hạn trước xuất trước, đảm bảo độ tươi tối đa.
+                </p>
+              </div>
+            </div>
+
+            {/* Cột phải danh sách nguyên tắc theo từng cơ sở */}
+            <div className="lg:col-span-8">
+              {processes.length > 0 ? (
+                <div className="space-y-5">
+                  {processes.map((process) => {
+                    const principles = getProcessPrinciples(process.description);
+
+                    return (
+                      <article
+                        key={process.farm_id}
+                        className="rounded-2xl border border-[#d9e6d3] bg-white p-5 shadow-2xs sm:p-6"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#edf1ea] pb-4">
+                          <div className="flex items-center gap-3">
+                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e9f5e5] text-[#08712b]">
+                              <Sprout className="h-5 w-5" aria-hidden="true" />
+                            </span>
+                            <div>
+                              <h3 className="text-base font-extrabold text-[#14391d]">
+                                {process.farm_name || "Quy trình XanhFarm"}
+                              </h3>
+                              <p className="text-xs text-[#687265]">
+                                Tiêu chuẩn áp dụng trực tiếp tại vùng trồng
+                              </p>
+                            </div>
+                          </div>
+                          {principles.length > 1 && (
+                            <span className="rounded-full bg-[#edf6e9] px-3 py-1 text-xs font-bold text-[#006e1c]">
+                              {principles.length} nguyên tắc cốt lõi
+                            </span>
+                          )}
+                        </div>
+
+                        {principles.length > 0 ? (
+                          <ol className="mt-4 grid gap-3 sm:grid-cols-2">
+                            {principles.map((principle, index) => (
+                              <li
+                                key={`${process.farm_id}-${principle}`}
+                                className="flex items-start gap-3 rounded-xl border border-[#eef2eb] bg-[#f8faf6] p-3.5"
+                              >
+                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#00450d] text-[11px] font-black text-white">
+                                  {String(index + 1).padStart(2, "0")}
+                                </span>
+                                <span className="pt-0.5 text-sm font-semibold leading-6 text-[#364434]">
+                                  {principle}
+                                </span>
+                              </li>
+                            ))}
+                          </ol>
+                        ) : (
+                          <p className="mt-4 rounded-xl bg-[#f8faf6] p-4 text-sm text-[#526050]">
+                            Chưa có mô tả quy trình cho cơ sở này.
+                          </p>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-[#bfd0b7] bg-white/80 p-8 text-center">
+                  <Leaf className="mx-auto h-8 w-8 text-[#18823a]" aria-hidden="true" />
+                  <p className="mt-2 text-sm text-[#5b6957]">
+                    Quy trình canh tác đang được cập nhật.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* ----------------------------------------------------------------
+            MỤC 03: CHỨNG NHẬN CHẤT LƯỢNG & KẾT QUẢ KIỂM ĐỊNH
+           ---------------------------------------------------------------- */}
+        <section id="chung-nhan" className="scroll-mt-36 space-y-8">
+          <SectionHeading
+            stepNumber="03"
+            eyebrow="Minh chứng xác thực"
+            icon={ShieldCheck}
+            title="Chứng nhận chất lượng & Kiểm định định kỳ"
+            subtitle="Toàn bộ giấy chứng nhận tiêu chuẩn và phiếu xét nghiệm mẫu đất, nguồn nước, nông sản đều được công khai để khách hàng đối chiếu."
+            rightSlot={
+              Array.isArray(story?.certifications) &&
+              story.certifications.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {story.certifications.map((certification) => (
+                    <span
+                      key={certification}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-[#cde2c6] bg-white px-3 py-1.5 text-xs font-bold text-[#006e1c] shadow-2xs"
+                    >
+                      <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                      {certification}
                     </span>
-                    {fileUrl && (
+                  ))}
+                </div>
+              )
+            }
+          />
+
+          {/* Nhóm 3A: Hồ sơ chứng nhận chất lượng */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="flex items-center gap-2 text-base font-extrabold text-[#14391d]">
+                <Award className="h-5 w-5 text-[#006e1c]" aria-hidden="true" />
+                <span>Giấy chứng nhận tiêu chuẩn ({certificates.length})</span>
+              </h3>
+            </div>
+
+            {certificates.length > 0 ? (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {certificates.map((certificate) => {
+                  const isOrganic = String(certificate.standard || certificate.name)
+                    .toLowerCase()
+                    .includes("hữu cơ");
+                  const fileUrl = certificate.file_url || "";
+
+                  return (
+                    <article
+                      key={certificate.id}
+                      className="flex flex-col justify-between rounded-3xl border border-[#dfe8db] bg-white p-5 shadow-2xs transition-shadow hover:shadow-md sm:p-6"
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-3">
+                          <span
+                            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
+                              isOrganic
+                                ? "bg-[#edf6e9] text-[#08712b]"
+                                : "bg-amber-50 text-amber-700"
+                            }`}
+                          >
+                            <Award className="h-5 w-5" aria-hidden="true" />
+                          </span>
+                          <span className="rounded-full bg-[#f2f7ef] px-3 py-1 text-[11px] font-extrabold text-[#28633a]">
+                            {certificate.standard || "Chứng nhận"}
+                          </span>
+                        </div>
+
+                        <h4 className="mt-4 text-base font-extrabold leading-6 text-[#14391d]">
+                          {certificate.name}
+                        </h4>
+                        <p className="mt-1 text-xs leading-5 text-[#687265]">
+                          Đơn vị cấp:{" "}
+                          <span className="font-semibold text-[#42513f]">
+                            {certificate.issuer || "Đang cập nhật"}
+                          </span>
+                        </p>
+
+                        <div className="mt-4 grid grid-cols-2 gap-3 rounded-2xl bg-[#f7faf5] p-3">
+                          <div>
+                            <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-[#7a8575]">
+                              <CalendarDays className="h-3 w-3" aria-hidden="true" />
+                              Ngày cấp
+                            </p>
+                            <p className="mt-0.5 text-xs font-bold text-[#364434]">
+                              {formatDate(certificate.issued_date)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-[#7a8575]">
+                              <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                              Hiệu lực đến
+                            </p>
+                            <p className="mt-0.5 text-xs font-bold text-[#006e1c]">
+                              {formatDate(certificate.expiry_date)}
+                            </p>
+                          </div>
+                        </div>
+
+                        {certificate.product_name && (
+                          <p className="mt-3 text-xs text-[#687265]">
+                            Phạm vi áp dụng:{" "}
+                            <span className="font-bold text-[#14391d]">
+                              {certificate.product_name}
+                            </span>
+                          </p>
+                        )}
+                      </div>
+
                       <button
                         type="button"
+                        disabled={!fileUrl}
                         onClick={() =>
                           setSelectedMedia({
                             url: fileUrl,
-                            title: `Kết quả kiểm định ${sampleMeta.label.toLowerCase()}`,
-                            subtitle: test.farm_name,
-                            type: /\.pdf(?:$|[?#])/i.test(test.file_path || fileUrl)
+                            title: certificate.name,
+                            subtitle: certificate.issuer,
+                            type: /\.pdf(?:$|[?#])/i.test(
+                              certificate.file_path || fileUrl
+                            )
                               ? "pdf"
                               : "image",
                           })
                         }
-                        className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg bg-[#edf6e9] px-3 text-xs font-bold text-[#226437] transition-colors hover:bg-[#dcefd5] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#18823a]"
+                        className="mt-5 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#00450d] px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-[#006e1c] disabled:cursor-not-allowed disabled:bg-[#dfe6dc] disabled:text-[#7b8578] cursor-pointer"
                       >
-                        <FileText className="h-4 w-4" aria-hidden="true" />
-                        Xem hồ sơ
-                      </button>
-                    )}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20">
-        <div className="mx-auto max-w-3xl text-center">
-          <span className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#18823a] sm:text-sm">
-            Cam kết từ nông trại
-          </span>
-          <h2 className="mt-3 text-3xl font-black tracking-tight text-[#173c20] sm:text-4xl">
-            Nông trại &amp; hồ sơ năng lực
-          </h2>
-          <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-[#657061] sm:text-base">
-            Mỗi cơ sở được giới thiệu bằng thông tin và hình ảnh thực tế do XanhFarm cung cấp.
-          </p>
-        </div>
-
-        {farms.length > 0 ? (
-          <div className="mt-8 grid gap-4 sm:mt-10 sm:grid-cols-2">
-            {farms.map((farm) => (
-              <article
-                key={farm.id}
-                className="group rounded-3xl border border-[#dfe8db] bg-white p-5 shadow-[0_12px_42px_-34px_rgba(19,54,24,0.5)] transition-shadow hover:shadow-[0_18px_48px_-32px_rgba(19,54,24,0.45)] sm:p-6"
-              >
-                <div className="flex items-start gap-4">
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#edf6e9] text-[#08712b] transition-transform group-hover:scale-105">
-                    <Sprout className="h-6 w-6" aria-hidden="true" />
-                  </span>
-                  <div className="min-w-0">
-                    <h3 className="text-lg font-extrabold text-[#173c20]">{farm.name}</h3>
-                    {farm.address && (
-                      <p className="mt-1.5 flex items-start gap-1.5 text-sm leading-6 text-[#697465]">
-                        <MapPin className="mt-1 h-4 w-4 shrink-0 text-[#18823a]" aria-hidden="true" />
-                        {farm.address}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                {farm.capacity_profile && (
-                  <div className="mt-5 rounded-2xl bg-[#f6f8f4] p-4">
-                    <p className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-[#18823a]">
-                      <FileBadge className="h-4 w-4" aria-hidden="true" />
-                      Hồ sơ năng lực
-                    </p>
-                    <p className="mt-2 text-sm leading-7 text-[#4c594a]">
-                      {farm.capacity_profile}
-                    </p>
-                  </div>
-                )}
-              </article>
-            ))}
-          </div>
-        ) : (
-          <p className="mt-8 rounded-2xl border border-dashed border-[#cbd9c5] bg-white p-6 text-center text-sm text-[#697465]">
-            Thông tin cơ sở nông trại đang được cập nhật.
-          </p>
-        )}
-
-        {galleryItems.length > 0 && (
-          <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
-            {galleryItems.map(({ farm, image }) => (
-              <figure
-                key={`${farm.id}-${image.id}`}
-                className="overflow-hidden rounded-2xl border border-[#e0e8dc] bg-white"
-              >
-                <FarmPhoto
-                  image={image}
-                  farmName={farm.name}
-                  className="h-36 w-full object-cover transition-transform duration-300 hover:scale-[1.03] sm:h-48"
-                />
-                {image.caption && (
-                  <figcaption className="px-3 py-2.5 text-xs leading-5 text-[#657061] sm:px-4 sm:text-sm">
-                    {image.caption}
-                  </figcaption>
-                )}
-              </figure>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section id="quy-trinh" className="scroll-mt-24 bg-[#edf4e9] py-14 sm:py-20">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:gap-14">
-            <div>
-              <span className="inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-[#18823a] shadow-sm sm:text-sm">
-                <Leaf className="h-4 w-4" aria-hidden="true" />
-                Từ đất đến bàn ăn
-              </span>
-              <h2 className="mt-4 text-3xl font-black leading-tight tracking-tight text-[#173c20] sm:text-4xl">
-                Quy trình canh tác sạch
-              </h2>
-              <p className="mt-4 text-sm leading-7 text-[#5b6957] sm:text-base">
-                Các nguyên tắc canh tác được nông trại chia sẻ, giúp khách hàng hiểu rõ hơn về cách XanhFarm chăm sóc mùa vụ.
-              </p>
-            </div>
-
-            {processes.length > 0 ? (
-              <div className="space-y-5">
-                {processes.map((process) => {
-                  const principles = getProcessPrinciples(process.description);
-
-                  return (
-                    <article
-                      key={process.farm_id}
-                      className="rounded-3xl border border-[#d9e6d3] bg-white p-5 shadow-sm sm:p-7"
-                    >
-                      <div className="flex items-start gap-3">
-                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#e9f5e5] text-[#08712b]">
-                          <Sprout className="h-5 w-5" aria-hidden="true" />
+                        {certificate.file_path &&
+                        /\.pdf(?:$|[?#])/i.test(certificate.file_path) ? (
+                          <FileText className="h-4 w-4" aria-hidden="true" />
+                        ) : (
+                          <BadgeCheck className="h-4 w-4" aria-hidden="true" />
+                        )}
+                        <span>
+                          {fileUrl ? "Xem bản scan chứng nhận" : "Chưa có tệp đính kèm"}
                         </span>
-                        <div>
-                          <h3 className="text-base font-extrabold text-[#173c20] sm:text-lg">
-                            {process.farm_name || "Quy trình XanhFarm"}
-                          </h3>
-                          <p className="mt-1 text-xs text-[#778272] sm:text-sm">
-                            {principles.length > 1
-                              ? `${principles.length} nguyên tắc canh tác`
-                              : "Nguyên tắc canh tác"}
-                          </p>
-                        </div>
-                      </div>
-
-                      {principles.length > 0 ? (
-                        <ol className="mt-5 grid gap-2.5 sm:grid-cols-2">
-                          {principles.map((principle, index) => (
-                            <li
-                              key={`${process.farm_id}-${principle}`}
-                              className="flex items-start gap-3 rounded-2xl bg-[#f7f9f5] p-3.5"
-                            >
-                              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-xs font-black text-[#18823a] shadow-sm">
-                                {String(index + 1).padStart(2, "0")}
-                              </span>
-                              <span className="pt-1 text-sm font-semibold leading-6 text-[#42513f]">
-                                {principle}
-                              </span>
-                            </li>
-                          ))}
-                        </ol>
-                      ) : (
-                        <p className="mt-5 rounded-2xl bg-[#f7f9f5] p-4 text-sm leading-7 text-[#526050]">
-                          Chưa có mô tả quy trình cho cơ sở này.
-                        </p>
-                      )}
+                        {fileUrl && <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />}
+                      </button>
                     </article>
                   );
                 })}
               </div>
             ) : (
-              <div className="rounded-3xl border border-dashed border-[#bfd0b7] bg-white/70 p-7 text-center">
-                <Leaf className="mx-auto h-8 w-8 text-[#18823a]" aria-hidden="true" />
-                <p className="mt-3 text-sm leading-6 text-[#5b6957]">
-                  Quy trình canh tác đang được cập nhật.
-                </p>
-              </div>
+              <EmptyState
+                icon={ShieldCheck}
+                title="Chưa có chứng nhận được công bố"
+                message="Hồ sơ chứng nhận chất lượng sẽ hiển thị tại đây khi được cập nhật."
+              />
             )}
           </div>
-        </div>
-      </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-          <div className="max-w-2xl">
-            <span className="inline-flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.16em] text-[#18823a] sm:text-sm">
-              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-              Chất lượng được xác thực
-            </span>
-            <h2 className="mt-3 text-3xl font-black tracking-tight text-[#173c20] sm:text-4xl">
-              Chứng nhận &amp; kiểm định
-            </h2>
-            <p className="mt-3 text-sm leading-7 text-[#657061] sm:text-base">
-              Hồ sơ chứng nhận còn hiệu lực được liên kết với sản phẩm hoặc lô hàng của nông trại.
-            </p>
-          </div>
-          {Array.isArray(story?.certifications) && story.certifications.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {story.certifications.map((certification) => (
-                <span
-                  key={certification}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[#cde2c6] bg-white px-3 py-1.5 text-xs font-bold text-[#226437] shadow-sm"
-                >
-                  <BadgeCheck className="h-4 w-4" aria-hidden="true" />
-                  {certification}
+          {/* Nhóm 3B: Kết quả kiểm định đất, nước & nông sản */}
+          {qualityTests.length > 0 && (
+            <div className="space-y-4 pt-2">
+              <h3 className="flex items-center gap-2 text-base font-extrabold text-[#14391d]">
+                <FlaskConical className="h-5 w-5 text-[#006e1c]" aria-hidden="true" />
+                <span>
+                  Phiếu kiểm định mẫu đất, nước &amp; nông sản ({qualityTests.length})
                 </span>
-              ))}
+              </h3>
+
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {qualityTests.map((test) => {
+                  const sampleMeta = SAMPLE_TYPE_META[test.sample_type] || {
+                    label: "Mẫu kiểm định",
+                    icon: FlaskConical,
+                    badgeClass: "bg-slate-100 text-slate-700 border-slate-200",
+                    iconClass: "bg-slate-100 text-slate-700",
+                  };
+                  const SampleIcon = sampleMeta.icon;
+                  const fileUrl = test.file_url || "";
+
+                  return (
+                    <article
+                      key={test.id}
+                      className="flex flex-col justify-between rounded-3xl border border-[#dfe8db] bg-white p-5 shadow-2xs transition-shadow hover:shadow-md sm:p-6"
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-3">
+                          <span
+                            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${sampleMeta.iconClass}`}
+                          >
+                            <SampleIcon className="h-5 w-5" aria-hidden="true" />
+                          </span>
+                          <span
+                            className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${sampleMeta.badgeClass}`}
+                          >
+                            {sampleMeta.label}
+                          </span>
+                        </div>
+
+                        <p className="mt-3 text-xs font-semibold text-[#687265]">
+                          Cơ sở: <span className="text-[#14391d]">{test.farm_name}</span>
+                        </p>
+
+                        <p className="mt-2.5 rounded-2xl bg-[#f7faf5] p-3.5 text-sm font-bold leading-6 text-[#193e22]">
+                          {test.result}
+                        </p>
+
+                        {test.note && (
+                          <p className="mt-2.5 text-xs leading-5 text-[#5b6957]">
+                            {test.note}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="mt-5 flex items-center justify-between gap-3 border-t border-[#edf1ea] pt-3.5">
+                        <span className="text-xs text-[#687265]">
+                          Ngày test:{" "}
+                          <strong className="font-semibold text-[#364434]">
+                            {formatDate(test.inspected_at)}
+                          </strong>
+                        </span>
+                        {fileUrl && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSelectedMedia({
+                                url: fileUrl,
+                                title: `Phiếu kiểm định — ${sampleMeta.label}`,
+                                subtitle: test.farm_name,
+                                type: /\.pdf(?:$|[?#])/i.test(test.file_path || fileUrl)
+                                  ? "pdf"
+                                  : "image",
+                              })
+                            }
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-[#edf6e9] px-3 py-1.5 text-xs font-bold text-[#006e1c] transition-colors hover:bg-[#dcefd5] cursor-pointer"
+                          >
+                            <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+                            <span>Xem phiếu</span>
+                          </button>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
             </div>
           )}
-        </div>
+        </section>
 
-        {certificates.length > 0 ? (
-          <div className="mt-7 grid gap-4 sm:mt-9 sm:grid-cols-2 lg:grid-cols-3">
-            {certificates.map((certificate) => {
-              const isOrganic = String(certificate.standard || certificate.name)
-                .toLowerCase()
-                .includes("hữu cơ");
-              const fileUrl = certificate.file_url || "";
+        {/* ==================================================================
+            BANNER KÊU GỌI HÀNH ĐỘNG CUỐI TRANG
+           ================================================================== */}
+        <section className="overflow-hidden rounded-3xl bg-gradient-to-r from-[#00450d] via-[#065214] to-[#006e1c] p-6 text-white shadow-sm sm:p-8">
+          <div className="flex flex-col items-start justify-between gap-5 sm:flex-row sm:items-center">
+            <div className="space-y-1.5 max-w-2xl">
+              <p className="text-xs font-extrabold uppercase tracking-wider text-[#91f78e]">
+                Trải nghiệm nông sản sạch mỗi ngày
+              </p>
+              <h2
+                className="text-xl font-black sm:text-2xl"
+                style={{ fontFamily: "var(--font-headline)" }}
+              >
+                Chọn thực phẩm lành, bắt đầu từ nguồn gốc rõ ràng
+              </h2>
+              <p className="text-xs sm:text-sm text-emerald-100/90">
+                Khám phá danh mục nông sản thu hoạch trong ngày hoặc đăng ký gói rau định kỳ tiết kiệm 20%.
+              </p>
+            </div>
 
-              return (
-                <article
-                  key={certificate.id}
-                  className="flex flex-col rounded-3xl border border-[#dfe8db] bg-white p-5 shadow-[0_12px_42px_-34px_rgba(19,54,24,0.5)] sm:p-6"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <span
-                      className={`flex h-12 w-12 items-center justify-center rounded-2xl ${isOrganic
-                          ? "bg-[#edf6e9] text-[#08712b]"
-                          : "bg-amber-50 text-amber-700"
-                        }`}
-                    >
-                      <Award className="h-6 w-6" aria-hidden="true" />
-                    </span>
-                    <span className="rounded-full bg-[#f2f7ef] px-3 py-1.5 text-[11px] font-extrabold text-[#28633a] sm:text-xs">
-                      {certificate.standard || "Chứng nhận chất lượng"}
-                    </span>
-                  </div>
-                  <h3 className="mt-4 text-base font-extrabold leading-6 text-[#193e22] sm:text-lg">
-                    {certificate.name}
-                  </h3>
-                  <p className="mt-1.5 text-sm leading-6 text-[#6a7565]">
-                    {certificate.issuer || "Đơn vị cấp chưa cập nhật"}
-                  </p>
-
-                  <div className="mt-5 grid grid-cols-2 gap-3 border-t border-[#edf1ea] pt-4">
-                    <div>
-                      <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#8a9485]">
-                        <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
-                        Ngày cấp
-                      </p>
-                      <p className="mt-1 text-xs font-semibold text-[#465344]">
-                        {formatDate(certificate.issued_date)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#8a9485]">
-                        <Check className="h-3.5 w-3.5" aria-hidden="true" />
-                        Hiệu lực đến
-                      </p>
-                      <p className="mt-1 text-xs font-semibold text-[#246238]">
-                        {formatDate(certificate.expiry_date)}
-                      </p>
-                    </div>
-                  </div>
-
-                  {certificate.product_name && (
-                    <p className="mt-3 text-xs text-[#7a8575]">
-                      Áp dụng cho:{" "}
-                      <span className="font-semibold text-[#4e5b4b]">
-                        {certificate.product_name}
-                      </span>
-                    </p>
-                  )}
-
-                  <button
-                    type="button"
-                    disabled={!fileUrl}
-                    onClick={() =>
-                      setSelectedMedia({
-                        url: fileUrl,
-                        title: certificate.name,
-                        subtitle: certificate.issuer,
-                        type: /\.pdf(?:$|[?#])/i.test(
-                          certificate.file_path || fileUrl
-                        )
-                          ? "pdf"
-                          : "image",
-                      })
-                    }
-                    className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#075b25] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#00450d] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#18823a] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-[#dfe6dc] disabled:text-[#7b8578]"
-                  >
-                    {certificate.file_path &&
-                      /\.pdf(?:$|[?#])/i.test(certificate.file_path) ? (
-                      <FileText className="h-4 w-4" aria-hidden="true" />
-                    ) : (
-                      <BadgeCheck className="h-4 w-4" aria-hidden="true" />
-                    )}
-                    {fileUrl ? "Xem hồ sơ chứng nhận" : "Chưa có tệp đính kèm"}
-                    {fileUrl && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
-                  </button>
-                </article>
-              );
-            })}
+            <div className="flex flex-wrap items-center gap-3 shrink-0">
+              <Link
+                to="/subscriptions"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-2.5 text-xs sm:text-sm font-bold text-white transition-colors hover:bg-white/20"
+              >
+                Gói rau định kỳ
+              </Link>
+              <Link
+                to="/products"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-2.5 text-xs sm:text-sm font-extrabold text-[#00450d] transition-colors hover:bg-emerald-50"
+              >
+                <span>Khám phá nông sản</span>
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            </div>
           </div>
-        ) : (
-          <div className="mt-8">
-            <EmptyState
-              icon={ShieldCheck}
-              title="Chưa có chứng nhận được công bố"
-              message="Hồ sơ chứng nhận chất lượng sẽ hiển thị tại đây khi được cập nhật."
-            />
-          </div>
-        )}
-      </section>
-
-      <section className="mx-4 overflow-hidden rounded-[2rem] bg-[#064e2e] sm:mx-6 lg:mx-auto lg:max-w-7xl">
-        <div className="relative px-6 py-9 text-center text-white sm:px-10 sm:py-12">
-          <div className="pointer-events-none absolute -right-10 -top-20 h-56 w-56 rounded-full bg-emerald-400/15 blur-2xl" />
-          <div className="relative mx-auto max-w-2xl">
-            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-emerald-200">
-              <Sprout className="h-6 w-6" aria-hidden="true" />
-            </span>
-            <h2 className="mt-4 text-2xl font-black sm:text-3xl">
-              Chọn thực phẩm lành, bắt đầu từ nguồn gốc rõ ràng
-            </h2>
-            <p className="mt-3 text-sm leading-7 text-emerald-100/90 sm:text-base">
-              Khám phá nông sản XanhFarm và hành trình phía sau mỗi mùa thu hoạch.
-            </p>
-            <Link
-              to="/products"
-              className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-extrabold text-[#075b25] transition-colors hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#064e2e]"
-            >
-              Khám phá nông sản
-              <ExternalLink className="h-4 w-4" aria-hidden="true" />
-            </Link>
-          </div>
-        </div>
-      </section>
+        </section>
+      </div>
 
       <MediaViewer media={selectedMedia} onClose={() => setSelectedMedia(null)} />
     </div>
